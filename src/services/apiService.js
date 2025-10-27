@@ -2,8 +2,8 @@
 import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
 
 const API_CONFIG = {
-  // URL única para TODAS las operaciones (solo servidor con L)
-  baseUrl: '/api-l/prctrans.php', // SIEMPRE usar ruta relativa - SOLO wsVirtualCoopSrvL
+  // URL única para TODAS las operaciones (servidor de PRODUCCIÓN)
+  baseUrl: '/api-l/prctrans.php', // SIEMPRE usar ruta relativa - wsVirtualCoopSrvP
   
   token: '0999SolSTIC20220719',
   timeout: 10000, // 10 segundos
@@ -1132,7 +1132,7 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     // PRUEBA 1: Petición directa sin proxy (para comparar)
     console.log('🧪 [DEBUG] === PRUEBA 1: Petición directa (sin proxy) ===');
     try {
-      const directUrl = 'http://192.168.200.25/wsVirtualCoopSrvL/ws_server/prctrans.php';
+      const directUrl = 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php';
       console.log('🌐 [DEBUG] URL directa:', directUrl);
 
       const directResponse = await fetch(directUrl, {

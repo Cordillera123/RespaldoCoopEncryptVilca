@@ -153,7 +153,7 @@ window.cryptoTests.encrypt("0200594729")
 
 ### Paso 2: Enviarlo al backend
 ```javascript
-fetch('http://192.168.200.25/wsVirtualCoopSrvL/ws_server/prctrans.php', {
+fetch('http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

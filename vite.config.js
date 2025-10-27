@@ -7,9 +7,9 @@ export default defineConfig({
     host: '0.0.0.0',
     cors: true,
     proxy: {
-      // 🔸 PROXY ÚNICO: Todas las peticiones van al servidor CON L
+      // 🔸 PROXY ÚNICO: Todas las peticiones van al servidor de PRODUCCIÓN
       '/api-l/prctrans.php': {
-        target: 'http://192.168.200.25/wsVirtualCoopSrvL/ws_server',
+        target: 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => {
@@ -58,7 +58,7 @@ export default defineConfig({
   },
   
   define: {
-    __API_URL__: JSON.stringify(process.env.API_URL || 'http://192.168.200.25/wsVirtualCoopSrvL/ws_server/prctrans.php'),
+    __API_URL__: JSON.stringify(process.env.API_URL || 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php'),
     __API_TOKEN__: JSON.stringify(process.env.API_TOKEN || '0999SolSTIC20220719')
   },
   
