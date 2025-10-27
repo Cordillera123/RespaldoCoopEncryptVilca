@@ -1,0 +1,66 @@
+{
+  "name": "frontendcoop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sistema de banca web para cooperativa de ahorro y crédito",
+  "author": "Tu Nombre",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "serve": "vite preview --port 4173",
+    "clean": "rimraf dist",
+    "format": "prettier --write src/",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-icons": "^5.5.0",
+    "react-pdf": "^10.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react-swc": "^3.10.2",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.30.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "postcss": "^8.5.6",
+    "prettier": "^3.6.2",
+    "rimraf": "^5.0.10",
+    "tailwindcss": "^3.4.17",
+    "terser": "^5.44.0",
+    "vite": "^7.0.4",
+    "vite-plugin-static-copy": "^3.1.3"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "banking",
+    "cooperativa",
+    "fintech",
+    "react",
+    "vite",
+    "tailwindcss",
+    "javascript",
+    "swc"
+  ]
+}
