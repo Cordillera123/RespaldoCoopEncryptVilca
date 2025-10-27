@@ -81,8 +81,8 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   '2160': {
-    description: 'Actualizar/Registrar contraseña',
-    encryptFields: ['identificacion', 'clave', 'claveNueva', 'password'],
+    description: 'Actualizar/Registrar contraseña y Validar código 2FA',
+    encryptFields: ['identificacion', 'idecl', 'usr', 'pwd', 'clave', 'claveNueva', 'password', 'codseg', 'codigo', 'idemsg'],
     decryptFields: []
   },
 

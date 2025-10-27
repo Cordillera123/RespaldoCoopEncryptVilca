@@ -36,6 +36,8 @@ const decryptedResponse = decryptResponse(backendResponse, "2351");
 ### 2. Unified API Service Pattern
 **Single backend endpoint for ALL operations:** `/api-l/prctrans.php` (proxied via Vite to `http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php`)
 
+**IMPORTANT:** Production server changed from `.25/wsVirtualCoopSrvL` to `.102/wsVirtualCoopSrvP`
+
 **Location:** `src/services/apiService.js` (5989 lines - central orchestrator)
 
 **Pattern:**
