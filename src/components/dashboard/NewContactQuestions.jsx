@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import apiService from '../../services/apiService';
 
 const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onCancel }) => {
-  const [securityQuestion, setSecurityQuestion] = useState(null);
+  const [securityQuestions, setSecurityQuestions] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
@@ -19,7 +20,7 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
       setIsLoading(true);
       setError('');
       
-      console.log('🔒 [SECURITY-Q] Cargando pregunta de seguridad...');
+      console.log('🔒 [SECURITY-Q] Cargando preguntas de seguridad del usuario...');
       
       // Obtener cédula del usuario actual
       const cedula = apiService.getUserCedula();
@@ -27,32 +28,40 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
         throw new Error('No se pudo obtener la cédula del usuario');
       }
 
-      // Obtener pregunta de seguridad
+      // Obtener preguntas de seguridad del usuario registrado
       const result = await apiService.getSecurityQuestion(cedula);
       
       if (result.success && result.questions && result.questions.length > 0) {
-        // Tomar la primera pregunta disponible
-        const question = result.questions[0];
-        setSecurityQuestion(question);
-        console.log('✅ [SECURITY-Q] Pregunta cargada:', question.detprg);
+        // Almacenar todas las preguntas disponibles del usuario
+        setSecurityQuestions(result.questions);
+        setCurrentQuestionIndex(0); // Comenzar con la primera pregunta
+        console.log('✅ [SECURITY-Q] Preguntas cargadas:', result.questions.length, 'preguntas encontradas');
+        console.log('📝 [SECURITY-Q] Primera pregunta:', result.questions[0].detprg);
       } else {
-        throw new Error(result.error?.message || 'No se pudieron obtener las preguntas de seguridad');
+        throw new Error(result.error?.message || 'No tienes preguntas de seguridad registradas. Contacta al administrador.');
       }
     } catch (error) {
-      console.error('❌ [SECURITY-Q] Error cargando pregunta:', error);
-      setError('Error al cargar la pregunta de seguridad: ' + error.message);
+      console.error('❌ [SECURITY-Q] Error cargando preguntas:', error);
+      setError('Error al cargar las preguntas de seguridad: ' + error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleValidateAnswer = async () => {
+    // Prevenir múltiples clicks cuando está validando
+    if (isValidating) {
+      console.log('⚠️ [SECURITY-Q] Validación en curso, ignorando click adicional');
+      return;
+    }
+
     if (!userAnswer.trim()) {
       setError('Por favor, ingresa tu respuesta');
       return;
     }
 
-    if (!securityQuestion) {
+    const currentQuestion = securityQuestions[currentQuestionIndex];
+    if (!currentQuestion) {
       setError('No hay pregunta de seguridad disponible');
       return;
     }
@@ -62,6 +71,7 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
       setError('');
       
       console.log('🔐 [SECURITY-Q] Validando respuesta de seguridad...');
+      console.log('📝 [SECURITY-Q] Pregunta actual:', currentQuestion.detprg);
       
       // Obtener cédula del usuario actual
       const cedula = apiService.getUserCedula();
@@ -72,7 +82,7 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
       // Validar respuesta de seguridad
       const result = await apiService.validateSecurityAnswer(
         cedula,
-        securityQuestion.codprg,
+        currentQuestion.codprg,
         userAnswer.trim()
       );
 
@@ -81,7 +91,7 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
         
         // Notificar al componente padre que la validación fue exitosa
         onSecurityValidated({
-          questionCode: securityQuestion.codprg,
+          questionCode: currentQuestion.codprg,
           answer: userAnswer.trim(),
           beneficiaryData: beneficiaryData
         });
@@ -99,8 +109,17 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
             onCancel();
           }, 3000);
         } else {
-          setError(`Respuesta incorrecta. Te quedan ${maxAttempts - newAttempts} intentos.`);
-          setUserAnswer(''); // Limpiar respuesta
+          // Si hay más preguntas disponibles y aún quedan intentos, cambiar a la siguiente pregunta
+          if (securityQuestions.length > 1 && currentQuestionIndex < securityQuestions.length - 1) {
+            const nextIndex = currentQuestionIndex + 1;
+            setCurrentQuestionIndex(nextIndex);
+            setUserAnswer(''); // Limpiar respuesta
+            setError(`Respuesta incorrecta. Te quedan ${maxAttempts - newAttempts} intentos. Intenta con esta otra pregunta.`);
+            console.log('🔄 [SECURITY-Q] Cambiando a la siguiente pregunta:', securityQuestions[nextIndex].detprg);
+          } else {
+            setError(`Respuesta incorrecta. Te quedan ${maxAttempts - newAttempts} intentos.`);
+            setUserAnswer(''); // Limpiar respuesta
+          }
         }
       }
     } catch (error) {
@@ -114,6 +133,16 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !isValidating && userAnswer.trim()) {
       handleValidateAnswer();
+    }
+  };
+
+  const handleChangeQuestion = () => {
+    if (securityQuestions.length > 1 && !isValidating) {
+      const nextIndex = (currentQuestionIndex + 1) % securityQuestions.length;
+      setCurrentQuestionIndex(nextIndex);
+      setUserAnswer('');
+      setError('');
+      console.log('🔄 [SECURITY-Q] Cambiando a pregunta:', securityQuestions[nextIndex].detprg);
     }
   };
 
@@ -236,14 +265,33 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
             )}
 
             {/* Pregunta de seguridad */}
-            {securityQuestion && validationAttempts < maxAttempts && (
+            {securityQuestions.length > 0 && validationAttempts < maxAttempts && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Pregunta de seguridad:
+                    {securityQuestions.length > 1 && (
+                      <span className="text-sm text-gray-500 ml-2">
+                        ({currentQuestionIndex + 1} de {securityQuestions.length})
+                      </span>
+                    )}
                   </label>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
-                    <p className="text-gray-800 font-medium">{securityQuestion.detprg}</p>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 flex items-center justify-between">
+                    <p className="text-gray-800 font-medium flex-1">{securityQuestions[currentQuestionIndex]?.detprg}</p>
+                    {securityQuestions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleChangeQuestion}
+                        disabled={isValidating}
+                        className="ml-4 text-sky-600 hover:text-sky-800 disabled:text-gray-400 transition-colors duration-200 flex items-center space-x-1"
+                        title="Cambiar pregunta"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                        </svg>
+                        <span className="text-sm">Otra pregunta</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -281,12 +329,12 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
                 Cancelar
               </button>
               
-              {securityQuestion && validationAttempts < maxAttempts && (
+              {securityQuestions.length > 0 && validationAttempts < maxAttempts && (
                 <button
                   type="button"
                   onClick={handleValidateAnswer}
                   disabled={isValidating || !userAnswer.trim()}
-                  className="flex-1 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center"
+                  className="flex-1 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center disabled:cursor-not-allowed"
                 >
                   {isValidating ? (
                     <>
@@ -306,8 +354,11 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
         </div>
 
         {/* Información adicional */}
-        <div className="mt-6 text-center text-sm text-gray-500">
+        <div className="mt-6 text-center text-sm text-gray-500 space-y-1">
           <p>Por seguridad, tienes máximo {maxAttempts} intentos para responder correctamente</p>
+          {securityQuestions.length > 1 && (
+            <p>Tienes {securityQuestions.length} preguntas de seguridad disponibles</p>
+          )}
         </div>
       </div>
     </div>
