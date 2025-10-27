@@ -208,6 +208,7 @@ export const ENCRYPTION_PROCESS_CODES = {
   // INVERSIONES
   INVESTMENTS: [
     '2213',  // Detalle de inversión
+    '2369',  // Parámetros de inversión
     '2371',  // Listar tipos de inversión
     '2372',  // Tipos de interés
     '2373',  // Calcular inversión (simulador)

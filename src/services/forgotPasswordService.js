@@ -1,3 +1,5 @@
+// ✅ IMPORTAR SISTEMA DE ENCRIPTACIÓN
+import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
 
 const FORGOT_PASSWORD_CONFIG = {
   // ÚNICA URL: Todas las peticiones van al servidor con L
@@ -30,19 +32,32 @@ class ForgotPasswordService {
   }
 
   /**
-   * Método genérico para hacer peticiones
+   * Método genérico para hacer peticiones CON ENCRIPTACIÓN
    */
   async makeRequest(url, data) {
     console.log('🚀 [FORGOT-SERVICE] Petición a:', url);
-    console.log('📦 [FORGOT-SERVICE] Datos:', {
-      ...data,
-      tkn: '***' + this.config.token.slice(-4)
-    });
+    console.log('📦 [FORGOT-SERVICE] Datos originales:', data);
 
-    const payload = {
+    // ✅ PASO 1: ENCRIPTAR REQUEST (sin incluir tkn)
+    let processedData = { ...data };
+    try {
+      processedData = encryptRequest(data);
+      console.log('🔐 [FORGOT-SERVICE] Datos encriptados aplicados');
+    } catch (encryptError) {
+      console.warn('⚠️ [FORGOT-SERVICE] Error al encriptar, enviando datos sin encriptar:', encryptError.message);
+    }
+
+    // ✅ PASO 2: AGREGAR TOKEN DESPUÉS DE ENCRIPTAR
+    const bodyToSend = {
       tkn: this.config.token,
-      ...data
+      ...processedData
     };
+
+    console.log('� [FORGOT-SERVICE] Payload final:', {
+      ...bodyToSend,
+      tkn: '***' + this.config.token.slice(-4),
+      pwd: bodyToSend.pwd ? '***' : undefined
+    });
 
     try {
       const controller = new AbortController();
@@ -51,7 +66,7 @@ class ForgotPasswordService {
       const response = await fetch(url, {
         method: 'POST',
         headers: this.config.headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(bodyToSend),
         signal: controller.signal
       });
 
@@ -64,12 +79,28 @@ class ForgotPasswordService {
         throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
       }
 
-      const result = await response.json();
-      console.log('✅ [FORGOT-SERVICE] Respuesta:', result);
+      // ✅ PASO 3: Leer respuesta como texto primero (por si hay logs del backend)
+      const responseText = await response.text();
+      
+      // Intentar limpiar la respuesta de posibles logs antes del JSON
+      let jsonText = responseText;
+      const jsonStart = responseText.indexOf('{');
+      const jsonEnd = responseText.lastIndexOf('}');
+      
+      if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
+        jsonText = responseText.substring(jsonStart, jsonEnd + 1);
+      }
+      
+      const result = JSON.parse(jsonText);
+      
+      // ✅ PASO 4: DESENCRIPTAR RESPONSE
+      const decryptedResult = decryptResponse(result, data.prccode);
+      
+      console.log('✅ [FORGOT-SERVICE] Respuesta desencriptada:', decryptedResult);
       
       return {
         success: true,
-        data: result
+        data: decryptedResult
       };
 
     } catch (error) {

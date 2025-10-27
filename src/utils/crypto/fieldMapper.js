@@ -317,6 +317,12 @@ export const FIELD_MAPPING_BY_PROCESS = {
   // ========================================================================
   // INVERSIONES
   // ========================================================================
+  '2369': {
+    description: 'Parámetros de inversión',
+    encryptFields: ['identificacion', 'idecl'],
+    decryptFields: ['montoMinimoE', 'montoMaximoE', 'valorE']
+  },
+
   '2371': {
     description: 'Listar tipos de inversión',
     encryptFields: ['identificacion', 'idecl'],
@@ -324,21 +330,21 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   '2372': {
-    description: 'Tipos de interés',
-    encryptFields: ['identificacion', 'idecl'],
-    decryptFields: []
+    description: 'Tipos de pago de interés',
+    encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto'],
+    decryptFields: ['valorE', 'montoE']
   },
 
   '2373': {
     description: 'Calcular inversión (simulador)',
-    encryptFields: ['identificacion', 'idecl', 'monto', 'valor'],
-    decryptFields: ['montoE', 'valorE', 'interesE']
+    encryptFields: ['identificacion', 'idecl', 'valinver', 'monto', 'valor'],
+    decryptFields: ['montoE', 'valorE', 'interesE', 'valinverE']
   },
 
   '2374': {
     description: 'Listar cuentas para inversión',
-    encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['codctaE', 'saldoE']
+    encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto'],
+    decryptFields: ['codctaE', 'saldoE', 'valorE', 'montoE']
   },
 
   '2375': {
@@ -346,14 +352,12 @@ export const FIELD_MAPPING_BY_PROCESS = {
     encryptFields: [
       'identificacion',
       'idecl',
-      'cuenta',
-      'codcta',
-      'monto',
-      'valor',
-      'codigoSeguridad',
-      'codigo'
+      'codctadp',  // Cuenta a debitar
+      'valinver',  // Valor de inversión
+      'monto',     // Alias de valor (por si acaso)
+      'valor'      // Alias alternativo
     ],
-    decryptFields: ['montoE', 'codctaE']
+    decryptFields: ['valinverE', 'montoE', 'valorE', 'codctaE']
   },
 
   // ========================================================================
