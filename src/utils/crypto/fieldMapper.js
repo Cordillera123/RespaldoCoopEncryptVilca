@@ -138,6 +138,33 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   // ========================================================================
+  // CONSULTAS DE PRODUCTOS FINANCIEROS
+  // ========================================================================
+  '2201': {
+    description: 'Listar productos financieros (Ahorros/Créditos) según prdfi',
+    encryptFields: ['idecl', 'identificacion', 'cedula'],
+    decryptFields: ['codctaE', 'ideclE', 'saldoE', 'salcntE', 'saldisE']
+  },
+
+  '2212': {
+    description: 'Estado de cuenta / movimientos',
+    encryptFields: ['idecl', 'identificacion', 'codcta', 'cuenta'],
+    decryptFields: ['codctaE', 'valorE', 'vlrE', 'saldoE']
+  },
+
+  '2213': {
+    description: 'Detalle de inversión',
+    encryptFields: ['idecl', 'identificacion', 'codinv', 'codigo'],
+    decryptFields: ['codinvE', 'valorE', 'montoinvE']
+  },
+
+  '2220': {
+    description: 'Tabla de amortización de crédito',
+    encryptFields: ['idecl', 'identificacion', 'codcrd', 'codigocredito'],
+    decryptFields: ['codcrdE', 'valorE', 'saldoE']
+  },
+
+  // ========================================================================
   // CONSULTAS DE CUENTAS
   // ========================================================================
   '2300': {

@@ -140,6 +140,26 @@ const {
 
 **Related hooks:** `useBeneficiaryAccounts.js`, `useServiciosFacilito.js`, `useWindows.js` - follow same pattern for complex features
 
+### 8. Products System (Savings, Credits, Investments)
+**All financial products use process code 2201** with different `prdfi` filters:
+- Savings: `prdfi: "2"` → Process code 2201
+- Credits: `prdfi: "4"` → Process code 2201  
+- Investments: Process code 2213 for details
+
+**Related processes:**
+- 2212: Account statements/movements
+- 2220: Credit amortization table
+- 2213: Investment detail with movements
+
+**Pattern:**
+```javascript
+const productsData = {
+  prccode: '2201',
+  idecl: cedula,
+  prdfi: "2"  // 2=savings, 4=credits
+};
+```
+
 ## Development Workflows
 
 ### Running the App

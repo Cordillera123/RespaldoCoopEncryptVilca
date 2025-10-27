@@ -179,6 +179,9 @@ export const ENCRYPTION_PROCESS_CODES = {
 
   // CONSULTAS DE CUENTAS
   ACCOUNTS: [
+    '2201',  // Listar productos financieros (Ahorros/Créditos)
+    '2212',  // Estado de cuenta / movimientos
+    '2220',  // Tabla de amortización
     '2300',  // Listar cuentas
     '2301',  // Detalle de cuenta
     '2351'   // Consultar cuenta específica (ejemplo proporcionado)
