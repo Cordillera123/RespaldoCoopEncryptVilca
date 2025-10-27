@@ -51,32 +51,32 @@ export const FIELD_MAPPING_BY_PROCESS = {
   // RECUPERACIÓN DE CONTRASEÑA Y VALIDACIONES
   // ========================================================================
   '2140': {
-    description: 'Verificar cédula / Validar identidad',
-    encryptFields: ['identificacion', 'cedula', 'idecl'],
+    description: 'Verificar cédula / Validar identidad (registro)',
+    encryptFields: ['idecl', 'identificacion', 'cedula'],
     decryptFields: []
   },
 
   '2148': {
-    description: 'Validar nombre de usuario',
-    encryptFields: ['identificacion', 'usuario', 'nombreUsuario'],
+    description: 'Validar nombre de usuario (registro)',
+    encryptFields: ['usr', 'usuario', 'nombreUsuario', 'identificacion'],
     decryptFields: []
   },
 
   '2151': {
-    description: 'Validar contraseña',
-    encryptFields: ['identificacion', 'clave', 'password'],
+    description: 'Validar fortaleza de contraseña (registro)',
+    encryptFields: ['usr', 'pwd', 'identificacion', 'clave', 'password'],
     decryptFields: []
   },
 
   '2155': {
     description: 'Solicitar código de seguridad OTP',
-    encryptFields: ['identificacion', 'idecl', 'cuenta', 'telefono', 'celular'],
+    encryptFields: ['idecl', 'identificacion', 'cuenta', 'tlfcel', 'telefono', 'celular'],
     decryptFields: []
   },
 
   '2156': {
-    description: 'Validar código de seguridad OTP',
-    encryptFields: ['identificacion', 'idecl', 'codigo', 'codigoOTP', 'codseg'],
+    description: 'Validar código de seguridad OTP (registro)',
+    encryptFields: ['idecl', 'identificacion', 'idemsg', 'codseg', 'codigo', 'codigoOTP'],
     decryptFields: []
   },
 
@@ -87,14 +87,14 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   '2165': {
-    description: 'Guardar pregunta de seguridad',
-    encryptFields: ['identificacion', 'idecl'],
+    description: 'Guardar pregunta de seguridad (registro)',
+    encryptFields: ['idecl', 'identificacion', 'detrsp', 'respuesta'],
     decryptFields: []
   },
 
   '2170': {
     description: 'Validar respuesta de pregunta de seguridad',
-    encryptFields: ['identificacion', 'idecl', 'respuesta'],
+    encryptFields: ['idecl', 'identificacion', 'detrsp', 'respuesta'],
     decryptFields: []
   },
 

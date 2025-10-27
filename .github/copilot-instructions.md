@@ -171,12 +171,19 @@ All requests logged with 🔐 prefix. Check console for:
    ```javascript
    '2XXX': {
      description: 'Your API description',
-     encrypt: ['sensitive_field1', 'sensitive_field2'],
-     decrypt: ['response_field1E', 'response_field2E']  // Backend adds 'E' suffix
+     encryptFields: ['idecl', 'usr', 'pwd', 'codseg', ...], // Fields to encrypt in request
+     decryptFields: ['response_field1E', 'response_field2E']  // Backend adds 'E' suffix
    }
    ```
 3. Create method in `apiService.js` following existing patterns
-4. Fields in `encrypt` array will auto-encrypt on request; `decrypt` array will auto-decrypt on response
+4. **CRITICAL:** ALL fields listed in backend's `fncrevisa_encrypt()` MUST be in `encryptFields` array
+
+**Backend encrypted fields (from PHP):**
+- Authentication: `usr`, `pwd`, `idecl`
+- Contact: `tlfcel`, `direma`, `adiema`
+- Financial: `codcta`, `codctad`, `codctao`, `codctab`, `valtrnf`, `valinver`, `valor`, `monto`
+- Security: `codseg`, `codigo`, `idemsg`, `detrsp`, `respuesta`
+- Credentials: `clave`, `claveActual`, `claveNueva`, `password`
 
 ## Project Conventions
 
