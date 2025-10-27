@@ -189,28 +189,42 @@ export const FIELD_MAPPING_BY_PROCESS = {
   // TRANSFERENCIAS INTERNAS
   // ========================================================================
   '2350': {
-    description: 'Validar fondos disponibles',
-    encryptFields: ['identificacion', 'idecl', 'cuenta', 'codcta', 'codctao', 'valor', 'monto'],
+    description: 'Validar fondos disponibles (interna y externa)',
+    encryptFields: [
+      'identificacion',
+      'idecl',        // Cédula
+      'cuenta',       // Cuenta genérica
+      'codcta',       // Código cuenta
+      'codctao',      // Código cuenta origen
+      'codctad',      // Código cuenta destino
+      'valor',        // Valor genérico
+      'monto',        // Monto genérico
+      'valtrnf'       // Valor transferencia
+    ],
+    // NOTA: tiptrnf NO se encripta (código de tipo)
     decryptFields: ['saldoE', 'valorE']
   },
 
   '2355': {
-    description: 'Ejecutar transferencia interna',
+    description: 'Ejecutar transferencia interna/cooperativa',
     encryptFields: [
       'identificacion',
-      'idecl',
+      'idecl',          // Cédula del cliente (SENSIBLE)
       'cuentaOrigen',
       'cuentaDestino',
-      'codctao',
-      'codctad',
-      'valor',
-      'monto',
+      'codctao',        // Cuenta origen (SENSIBLE)
+      'codctad',        // Cuenta destino/origen (SENSIBLE)
+      'codctac',        // Cuenta beneficiario (SENSIBLE)
+      'valor',          // Valor (SENSIBLE)
+      'monto',          // Monto (SENSIBLE)
+      'valtrnf',        // Valor transferencia (SENSIBLE)
       'codigoSeguridad',
       'codigo',
-      'codseg',
+      'codseg',         // Código seguridad OTP (SENSIBLE)
       'descripcion',
+      'dettrnf',        // Detalle transferencia (SENSIBLE)
       'referencia',
-      'idemsg'
+      'idemsg'          // ID mensaje (SENSIBLE)
     ],
     decryptFields: ['codctaE', 'valorE']
   },
@@ -219,21 +233,33 @@ export const FIELD_MAPPING_BY_PROCESS = {
   // TRANSFERENCIAS EXTERNAS (OTROS BANCOS)
   // ========================================================================
   '2360': {
-    description: 'Transferencia externa - validar',
+    description: 'Ejecutar transferencia externa (otros bancos)',
     encryptFields: [
       'identificacion',
-      'idecl',
+      'idecl',          // Cédula del cliente (SENSIBLE)
+      'ideclr',         // Cédula receptor (SENSIBLE)
       'cedula',
       'cuenta',
       'codcta',
       'cuentaOrigen',
       'codctao',
+      'codctad',        // Cuenta destino (SENSIBLE)
+      'codctac',        // Número cuenta beneficiario (SENSIBLE)
       'cuentaBeneficiario',
       'cuentaDestino',
       'valor',
       'monto',
-      'descripcion'
+      'valtrnf',        // Valor transferencia (SENSIBLE)
+      'descripcion',
+      'infopi',         // Información adicional
+      'codseg',         // Código de seguridad OTP (SENSIBLE)
+      'codigo',
+      'codigoSeguridad',
+      'bnfema',         // Email beneficiario (SENSIBLE)
+      'bnfcel',         // Celular beneficiario (SENSIBLE)
+      'idemsg'          // ID mensaje (SENSIBLE)
     ],
+    // NOTA: codifi, codtidr, codtcur, nomclr NO se encriptan (catálogos y nombres)
     decryptFields: ['valorE', 'saldoE']
   },
 
@@ -276,6 +302,21 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   // ========================================================================
+  // CATÁLOGOS Y LISTAS
+  // ========================================================================
+  '2310': {
+    description: 'Obtener lista de instituciones financieras (bancos)',
+    encryptFields: [],
+    decryptFields: []
+  },
+
+  '2320': {
+    description: 'Obtener tipos de cuentas de captaciones',
+    encryptFields: [],
+    decryptFields: []
+  },
+
+  // ========================================================================
   // BENEFICIARIOS
   // ========================================================================
   '2325': {
@@ -306,12 +347,29 @@ export const FIELD_MAPPING_BY_PROCESS = {
     description: 'Crear/agregar beneficiario',
     encryptFields: [
       'identificacion',
-      'idecl',
+      'idecl',        // Cédula del cliente (SENSIBLE)
+      'ideclr',       // Cédula/RUC receptor (SENSIBLE)
+      'codctac',      // Número de cuenta (SENSIBLE)
+      'bnfema',       // Email beneficiario (SENSIBLE)
+      'bnfcel',       // Celular beneficiario (SENSIBLE)
       'cuenta',
       'cuentaBeneficiario',
       'identificacionBeneficiario'
     ],
-    decryptFields: ['codctaE']
+    // NOTA: codifi, codtidr, codtcur, nomclr NO se encriptan porque son códigos de catálogo y nombres
+    decryptFields: ['codctaE', 'codctacE']
+  },
+
+  '2370': {
+    description: 'Eliminar beneficiario',
+    encryptFields: [
+      'identificacion',
+      'idecl',        // Cédula del cliente (SENSIBLE)
+      'ideclr',       // Cédula/RUC receptor (SENSIBLE)
+      'codctac'       // Número de cuenta (SENSIBLE)
+    ],
+    // NOTA: codifi, codtidr, codtcur NO se encriptan porque son códigos de catálogo
+    decryptFields: []
   },
 
   // ========================================================================

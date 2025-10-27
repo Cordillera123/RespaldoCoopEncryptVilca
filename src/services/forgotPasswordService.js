@@ -79,19 +79,52 @@ class ForgotPasswordService {
         throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
       }
 
-      // ✅ PASO 3: Leer respuesta como texto primero (por si hay logs del backend)
+      // ✅ PASO 3: Leer respuesta como texto primero (por si hay logs del backend PHP)
       const responseText = await response.text();
+      console.log('📄 [FORGOT-SERVICE] Respuesta raw (primeros 300 chars):', responseText.substring(0, 300));
       
-      // Intentar limpiar la respuesta de posibles logs antes del JSON
-      let jsonText = responseText;
-      const jsonStart = responseText.indexOf('{');
-      const jsonEnd = responseText.lastIndexOf('}');
-      
-      if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
-        jsonText = responseText.substring(jsonStart, jsonEnd + 1);
+      let result;
+      try {
+        // Intentar parsear directamente
+        result = JSON.parse(responseText);
+        console.log('✅ [FORGOT-SERVICE] JSON parseado directamente');
+      } catch (jsonError) {
+        console.warn('⚠️ [FORGOT-SERVICE] Respuesta no es JSON puro, extrayendo...');
+        
+        // ESTRATEGIA MEJORADA: Buscar JSON válido ignorando debug PHP
+        const lines = responseText.split('\n');
+        let jsonString = null;
+        
+        // Buscar de atrás hacia adelante la primera línea con JSON válido
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i].trim();
+          if (line.startsWith('{') && line.endsWith('}')) {
+            try {
+              const testParse = JSON.parse(line);
+              jsonString = line;
+              console.log('✅ [FORGOT-SERVICE] JSON encontrado en línea', i + 1);
+              break;
+            } catch (e) {
+              continue;
+            }
+          }
+        }
+        
+        // Fallback: buscar con regex
+        if (!jsonString) {
+          const jsonMatch = responseText.match(/\{[^{}]*"estado"[^{}]*\}/);
+          if (jsonMatch) {
+            jsonString = jsonMatch[0];
+            console.log('✅ [FORGOT-SERVICE] JSON encontrado con regex');
+          }
+        }
+        
+        if (!jsonString) {
+          throw new Error(`No se encontró JSON válido en la respuesta: ${responseText.substring(0, 200)}`);
+        }
+        
+        result = JSON.parse(jsonString);
       }
-      
-      const result = JSON.parse(jsonText);
       
       // ✅ PASO 4: DESENCRIPTAR RESPONSE
       const decryptedResult = decryptResponse(result, data.prccode);

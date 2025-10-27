@@ -176,7 +176,7 @@ class ApiService {
         throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
       }
 
-      // 🛠️ FIX: Backend puede devolver texto antes del JSON (logs de debug)
+      // 🛠️ FIX: Backend puede devolver texto antes del JSON (logs de debug PHP con <BR>, print_r, etc.)
       const responseText = await response.text();
       console.log('📄 [API] Texto de respuesta recibido (primeros 500 chars):', responseText.substring(0, 500));
       
@@ -188,12 +188,41 @@ class ApiService {
       } catch (jsonError) {
         console.warn('⚠️ [API] Respuesta no es JSON puro, extrayendo JSON...');
         
-        // Buscar el JSON en el texto (empezará con { y terminará con })
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        // ESTRATEGIA MEJORADA: Buscar la ÚLTIMA ocurrencia de JSON válido
+        // Esto ignora los print_r(), var_dump(), <BR> del debug PHP
         
-        if (jsonMatch) {
+        // 1. Buscar todas las posibles líneas que empiecen con {
+        const lines = responseText.split('\n');
+        let jsonString = null;
+        
+        // 2. Buscar de atrás hacia adelante la primera línea que sea JSON válido
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i].trim();
+          if (line.startsWith('{') && line.endsWith('}')) {
+            try {
+              const testParse = JSON.parse(line);
+              jsonString = line;
+              console.log('✅ [API] JSON encontrado en línea', i + 1);
+              break;
+            } catch (e) {
+              // No es JSON válido, continuar buscando
+              continue;
+            }
+          }
+        }
+        
+        // 3. Si no encontramos línea completa, buscar con regex (fallback)
+        if (!jsonString) {
+          const jsonMatch = responseText.match(/\{[^{}]*"estado"[^{}]*\}/);
+          if (jsonMatch) {
+            jsonString = jsonMatch[0];
+            console.log('✅ [API] JSON encontrado con regex fallback');
+          }
+        }
+        
+        if (jsonString) {
           try {
-            result = JSON.parse(jsonMatch[0]);
+            result = JSON.parse(jsonString);
             console.log('✅ [API] JSON extraído exitosamente de la respuesta');
           } catch (extractError) {
             console.error('❌ [API] No se pudo extraer JSON válido:', extractError);

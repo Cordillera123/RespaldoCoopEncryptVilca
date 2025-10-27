@@ -50,12 +50,10 @@ const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }
       console.log('🔍 [TRANSFER-COOP-DEBUG] Datos completos del contacto:', JSON.stringify(preselectedContact, null, 2));
       console.log('🔍 [TRANSFER-COOP-DEBUG] Beneficiarios disponibles:', beneficiaries.length);
 
-      if (beneficiaries.length === 0) {
-        console.log('⏳ [TRANSFER-COOP] Sin beneficiarios cargados aún, esperando...');
-        return;
-      }
+      // ✅ CORREGIDO: No esperar a que haya beneficiarios, siempre procesar el contacto
+      // Si no hay beneficiarios previos (común en usuarios CACVIL), agregar el contacto directamente
 
-      // 🚀 NUEVA LÓGICA: Buscar beneficiario existente por cédula (no por cuenta)
+      // 🚀 Buscar beneficiario existente por cédula (no por cuenta)
       const existingBeneficiaryGroup = groupedBeneficiaries.find(group => 
         group.cedula === preselectedContact.identificationNumber || 
         group.cedula === preselectedContact.cedula
@@ -320,11 +318,25 @@ const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }
           getAccountById(formData.selectedAccountId) : 
           selectedBeneficiaryGroup?.accounts[0]; // Si solo hay una cuenta, usar esa
         
-        const selectedBeneficiary = selectedAccount ? {
-          ...selectedBeneficiaryGroup,
-          ...selectedAccount,
-          beneficiary: selectedBeneficiaryGroup
-        } : selectedBeneficiaryGroup;
+        // ✅ IMPORTANTE: Construir beneficiario con todos los campos necesarios para SecurityCodeCoopint
+        const selectedBeneficiary = {
+          // Datos del beneficiario (nombre, cédula, etc.)
+          name: selectedBeneficiaryGroup?.name,
+          cedula: selectedBeneficiaryGroup?.cedula,
+          identificationNumber: selectedBeneficiaryGroup?.identificationNumber,
+          email: selectedBeneficiaryGroup?.email,
+          phone: selectedBeneficiaryGroup?.phone,
+          avatar: selectedBeneficiaryGroup?.avatar,
+          // Datos de la cuenta específica seleccionada
+          accountNumber: selectedAccount?.accountNumber,
+          bank: selectedAccount?.bank,
+          bankCode: selectedAccount?.bankCode,
+          accountType: selectedAccount?.accountType,
+          accountTypeCode: selectedAccount?.accountTypeCode,
+          id: selectedAccount?.id
+        };
+
+        console.log('📋 [COOP-TRANSFER] Beneficiario construido para transferData:', selectedBeneficiary);
 
         setTransferData({
           cuentaOrigen: formData.fromAccount,
@@ -665,14 +677,8 @@ const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }
                 Imprimir comprobante
               </button>
               <button
-                onClick={handleNewTransfer}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 shadow-md shadow-blue-500/20"
-              >
-                Nueva Transferencia
-              </button>
-              <button
                 onClick={onBack}
-                className="w-full bg-slate-200/80 hover:bg-slate-300/80 text-slate-700 font-medium py-3 px-6 rounded-xl transition-colors duration-300 backdrop-blur-sm"
+                className="w-full bg-gradient-to-r from-sky-600 to-sky-700 hover:from-sky-700 hover:to-sky-800 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 shadow-md shadow-sky-500/20"
               >
                 Regresar al Menú
               </button>

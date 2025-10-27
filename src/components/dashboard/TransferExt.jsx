@@ -682,14 +682,8 @@ const TransferExt = ({ onBack, preselectedContact = null, onShowAddAccount }) =>
                 Imprimir comprobante
               </button>
               <button
-                onClick={handleNewTransfer}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 shadow-md shadow-sky-500/20"
-              >
-                Nueva Transferencia
-              </button>
-              <button
                 onClick={onBack}
-                className="w-full bg-slate-200/80 hover:bg-slate-300/80 text-slate-700 font-medium py-3 px-6 rounded-xl transition-colors duration-300 backdrop-blur-sm"
+                className="w-full bg-gradient-to-r from-sky-600 to-sky-700 hover:from-sky-700 hover:to-sky-800 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 shadow-md shadow-sky-500/20"
               >
                 Regresar al Menú
               </button>

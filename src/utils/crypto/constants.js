@@ -189,11 +189,14 @@ export const ENCRYPTION_PROCESS_CODES = {
 
   // BENEFICIARIOS
   BENEFICIARIES: [
+    '2310',  // Obtener instituciones financieras (bancos)
+    '2320',  // Obtener tipos de cuentas
     '2325',  // Listar beneficiarios cooperativa (internos)
     '2330',  // Listar beneficiarios externos (otros bancos)
     '2335',  // Obtener preguntas de seguridad
     '2340',  // Listar preguntas de seguridad disponibles
-    '2365'   // Crear/agregar beneficiario
+    '2365',  // Crear/agregar beneficiario
+    '2370'   // Eliminar beneficiario
   ],
 
   // TRANSFERENCIAS
