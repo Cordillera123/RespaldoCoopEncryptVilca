@@ -151,8 +151,15 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
     setAlert(null);
 
     try {
-      console.log('🔐 [2FA-UI] Validando código:', securityCode);
-      console.log('📋 [2FA-UI] Datos 2FA:', twoFactorData);
+      console.log('🔐 [2FA-UI] ===== INICIANDO VALIDACIÓN OTP =====');
+      console.log('🔐 [2FA-UI] Código OTP ingresado (texto plano):', securityCode);
+      console.log('🔐 [2FA-UI] Longitud del código:', securityCode.length);
+      console.log('🔐 [2FA-UI] Tipo de dato:', typeof securityCode);
+      console.log('📋 [2FA-UI] Cédula:', twoFactorData.cedula);
+      console.log('📋 [2FA-UI] Username:', twoFactorData.username);
+      console.log('📋 [2FA-UI] ID Mensaje:', twoFactorData.idemsg);
+      console.log('📋 [2FA-UI] Datos completos 2FA:', twoFactorData);
+      console.log('🔐 [2FA-UI] ===== LLAMANDO A API =====');
 
       const result = await apiService.validateSecurityCodeFor2FA(
         twoFactorData.cedula,

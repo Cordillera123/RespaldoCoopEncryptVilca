@@ -37,73 +37,64 @@ export const DEBUG_MODE = import.meta.env.DEV;
 
 /**
  * Campos que SIEMPRE deben encriptarse sin importar el proceso
+ * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS
  */
 export const ALWAYS_ENCRYPT_FIELDS = [
-  'identificacion',
-  'idecl',           // Identificación cliente (usado en algunas APIs)
-  'usr',             // Usuario (formato backend login)
-  'pwd',             // Password (formato backend login)
-  'usuario',
-  'clave',
-  'claveActual',
-  'claveNueva',
-  'claveConfirmacion',
-  'password',
-  'codigoSeguridad',
-  'codigoOTP',
-  'codigo',          // Códigos de verificación genéricos
-  'codseg',          // Código de seguridad (formato backend)
-  'pin',
-  'respuesta',       // Respuesta a pregunta de seguridad
-  'nombreUsuario'
+  // ===== CAMPOS ORIGINALES DEL BACKEND PHP =====
+  'tlfcel', 'tlfcelul', 'usr', 'pwd',
+  'idecl', 'adiema', 'direma', 'detrsp',
+  'codcta', 'codinv', 'codcrd', 'codctad',
+  'valtrnf', 'codctac', 'ideclr', 'bnfcel',
+  'bnfema', 'valinver', 'codctadp', 'valtrns',
+  
+  // ===== NUEVOS CAMPOS (Frontend React) - EXACTOS DEL PHP =====
+  'codigo', 'codseg', 'respuesta',          // Códigos y seguridad ⚠️ CRÍTICO PARA OTP
+  'valor', 'monto', 'montoinv',              // Valores financieros
+  'cuenta', 'codctao', 'codctab',            // Cuentas
+  'clave', 'password', 'claveActual',        // Contraseñas
+  'claveNueva', 'identificacion',            // Identificación
+  'telefono', 'celular', 'email', 'correo',  // Contactos
+  'vlr', 'vlrtrn', 'descripcion',            // Transacciones
+  'referencia', 'idemsg',                    // Referencias ⚠️ CRÍTICO PARA OTP
+  
+  // ===== ALIASES PARA COMPATIBILIDAD =====
+  'usuario', 'codigoSeguridad', 'codigoOTP', 'pin', 'claveConfirmacion', 'nombreUsuario'
 ];
 
 /**
  * Campos financieros sensibles
+ * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS
  */
 export const FINANCIAL_FIELDS = [
-  'cuenta',
-  'codcta',          // Código de cuenta (formato backend)
-  'codctad',         // Código cuenta destino
-  'codctao',         // Código cuenta origen
-  'codctab',         // Código cuenta beneficiario
-  'cuentaOrigen',
-  'cuentaDestino',
-  'cuentaBeneficiario',
-  'numeroCuenta',
-  'valor',
-  'vlr',             // Valor (formato backend)
-  'vlrtrn',          // Valor transacción
-  'monto',
-  'montoinv',        // Monto inversión
-  'saldo',
-  'salcnt',          // Saldo contable
-  'saldis',          // Saldo disponible
-  'valorTransferencia',
-  'descripcion',     // Descripción de transacción (puede contener info sensible)
-  'referencia'       // Referencia de transacción
+  // ===== CAMPOS FINANCIEROS ORIGINALES DEL PHP =====
+  'codcta', 'codinv', 'codcrd', 'codctad',
+  'valtrnf', 'codctac', 'valinver', 'codctadp', 'valtrns',
+  
+  // ===== NUEVOS CAMPOS FINANCIEROS DEL PHP =====
+  'valor', 'monto', 'montoinv',
+  'cuenta', 'codctao', 'codctab',
+  'vlr', 'vlrtrn', 'descripcion', 'referencia',
+  
+  // ===== ALIASES PARA COMPATIBILIDAD =====
+  'cuentaOrigen', 'cuentaDestino', 'cuentaBeneficiario', 'numeroCuenta',
+  'saldo', 'salcnt', 'saldis', 'valorTransferencia'
 ];
 
 /**
  * Campos de datos personales
+ * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS
  */
 export const PERSONAL_DATA_FIELDS = [
-  'telefono',
-  'tlfcel',          // Teléfono celular (formato backend)
-  'celular',
-  'email',
-  'direma',          // Dirección email (formato backend)
-  'correo',
-  'direccion',
-  'cedula',
-  'ruc',
-  'nombres',
-  'apellidos',
-  'nombre',
-  'apellido',
-  'fechaNacimiento',
-  'identificacionBeneficiario',
-  'nombreBeneficiario'
+  // ===== CAMPOS PERSONALES ORIGINALES DEL PHP =====
+  'tlfcel', 'tlfcelul', 'adiema', 'direma', 'detrsp',
+  'ideclr', 'bnfcel', 'bnfema',
+  
+  // ===== NUEVOS CAMPOS PERSONALES DEL PHP =====
+  'identificacion', 'telefono', 'celular', 'email', 'correo',
+  
+  // ===== ALIASES PARA COMPATIBILIDAD =====
+  'direccion', 'cedula', 'ruc', 'nombres', 'apellidos', 'nombre',
+  'apellido', 'fechaNacimiento', 'identificacionBeneficiario', 'nombreBeneficiario'
 ];
 
 // ============================================================================

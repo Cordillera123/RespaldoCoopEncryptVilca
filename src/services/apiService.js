@@ -6,7 +6,7 @@ const API_CONFIG = {
   baseUrl: '/api-l/prctrans.php', // SIEMPRE usar ruta relativa - wsVirtualCoopSrvP
   
   token: '0999SolSTIC20220719',
-  timeout: 10000, // 10 segundos
+  timeout: 30000, // 30 segundos (aumentado para soportar encriptación y operaciones complejas)
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -93,6 +93,83 @@ class ApiService {
   }
 
   /**
+   * Construye un body JSON respetando el orden de campos esperado por el backend
+   * para procesos que son sensibles al orden (ej. OTP: 2155/2156, login 2100, etc.)
+   * @param {Object} processedData - Objeto con los campos (ya encriptados si aplica)
+   * @returns {Object} body ordenado
+   */
+  buildOrderedBody(processedData = {}) {
+    // Mapas de orden por proceso (usar los nombres de claves ya encriptadas)
+    const orderedFieldsByProcess = {
+      // Solicitar código OTP: tkn, prccode, idecl
+      '2155': ['tkn', 'prccode', 'idecl'],
+      // Validar código OTP: tkn, prccode, idecl, idemsg, codseg (ORDEN EXACTO DEL POSTMAN)
+      '2156': ['tkn', 'prccode', 'idecl', 'idemsg', 'codseg'],
+      // Login clásico: tkn, prccode, usr, pwd
+      '2100': ['tkn', 'prccode', 'usr', 'pwd']
+    };
+
+    const prc = String(processedData.prccode || '');
+    const orderedKeys = orderedFieldsByProcess[prc];
+
+    // Si no hay orden específico, devolver body con orden por defecto (tkn, prccode, usr, pwd, ...otros)
+    if (!orderedKeys) {
+      const body = {
+        tkn: this.config.token,
+        prccode: processedData.prccode,
+        usr: processedData.usr,
+        pwd: processedData.pwd
+      };
+
+      // Añadir el resto manteniendo la inserción en orden de las keys encontradas
+      Object.keys(processedData).forEach(key => {
+        if (!['prccode', 'usr', 'pwd'].includes(key)) {
+          body[key] = processedData[key];
+        }
+      });
+
+      return body;
+    }
+
+    // Construir body siguiendo el orden definido
+    const body = {};
+    orderedKeys.forEach(key => {
+      // tkn viene de this.config.token siempre
+      if (key === 'tkn') {
+        body.tkn = this.config.token;
+      } else if (key === 'prccode') {
+        body.prccode = processedData.prccode;
+      } else if (Object.prototype.hasOwnProperty.call(processedData, key)) {
+        body[key] = processedData[key];
+      }
+    });
+
+    // Añadir restantes campos que no estaban en la lista ordenada, para compatibilidad
+    Object.keys(processedData).forEach(key => {
+      if (!Object.prototype.hasOwnProperty.call(body, key)) {
+        body[key] = processedData[key];
+      }
+    });
+
+    // Log especial para proceso 2156 (validar OTP login)
+    if (prc === '2156') {
+      console.log('🎯 [BUILD-ORDER-2156] ===== CONSTRUCCIÓN BODY PROCESO 2156 =====');
+      console.log('🎯 [BUILD-ORDER-2156] Orden definido:', orderedKeys);
+      console.log('🎯 [BUILD-ORDER-2156] Orden real del body:', Object.keys(body));
+      console.log('🎯 [BUILD-ORDER-2156] Valores del body:', {
+        tkn: body.tkn?.substring(0, 10) + '...',
+        prccode: body.prccode,
+        idecl: body.idecl?.substring(0, 10) + '...',
+        idemsg: body.idemsg?.substring(0, 10) + '...',
+        codseg: body.codseg?.substring(0, 5) + '***'
+      });
+      console.log('🎯 [BUILD-ORDER-2156] ===== FIN CONSTRUCCIÓN =====');
+    }
+
+    return body;
+  }
+
+  /**
    * Método genérico para realizar peticiones HTTP
    */
   async makeRequest(data, options = {}) {
@@ -118,24 +195,29 @@ class ApiService {
       tkn: '***' + this.config.token.slice(-4)
     });
 
-    // 🎯 IMPORTANTE: Construir body en el MISMO orden que Postman
-    // Backend PHP podría estar sensible al orden de los campos
-    const bodyToSend = {
-      tkn: this.config.token,
-      prccode: processedData.prccode,
-      usr: processedData.usr,
-      pwd: processedData.pwd,
-      // Agregar cualquier otro campo que pueda existir
-      ...Object.keys(processedData).reduce((acc, key) => {
-        if (key !== 'prccode' && key !== 'usr' && key !== 'pwd') {
-          acc[key] = processedData[key];
-        }
-        return acc;
-      }, {})
-    };
+    // 🎯 IMPORTANTE: Construir body en el MISMO orden que el backend PHP espera
+    // Backend PHP es sensible al orden de los campos JSON
+    const bodyToSend = this.buildOrderedBody(processedData);
 
     console.log('🌐 [API] Body COMPLETO a enviar (JSON):');
     console.log(JSON.stringify(bodyToSend, null, 2));
+    
+    // 🔍 LOG ESPECIAL PARA PROCESO 2156 - COMPARACIÓN CON POSTMAN
+    if (data.prccode === '2156') {
+      console.log('🔍 [DEBUG-2156] ===== COMPARACIÓN CON POSTMAN =====');
+      console.log('🔍 [DEBUG-2156] Body completo que se enviará:');
+      console.log('🔍 [DEBUG-2156]', JSON.stringify(bodyToSend, null, 2));
+      console.log('🔍 [DEBUG-2156] Valores EXACTOS (para copiar a Postman):');
+      console.log('🔍 [DEBUG-2156] tkn:', bodyToSend.tkn);
+      console.log('🔍 [DEBUG-2156] prccode:', bodyToSend.prccode);
+      console.log('🔍 [DEBUG-2156] idecl:', bodyToSend.idecl);
+      console.log('🔍 [DEBUG-2156] idemsg:', bodyToSend.idemsg);
+      console.log('🔍 [DEBUG-2156] codseg:', bodyToSend.codseg);
+      console.log('🔍 [DEBUG-2156] =====================================');
+      
+      // Log del código OTP SIN encriptar (antes de encriptar)
+      console.log('🔍 [DEBUG-2156] Código OTP ORIGINAL (sin encriptar):', data.codseg || 'NO DISPONIBLE');
+    }
 
     const requestOptions = {
       method: 'POST',
@@ -1416,6 +1498,87 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
           error: {
             message: updateResult.error?.message || 'Error al generar contraseña temporal',
             code: this.getPasswordUpdateErrorCode(result.data)
+          }
+        };
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * MÉTODO ESPECÍFICO PARA VALIDAR CÓDIGO OTP EN LOGIN (PROCESO 2156)
+   * Este método se usa cuando el usuario ingresa el código OTP para autenticarse
+   */
+  async validateOTPForLogin({ cedula, idemsg, codigo }) {
+    console.log('🔐 [LOGIN-OTP] Validando código OTP para login');
+    console.log('👤 [LOGIN-OTP] Cédula:', cedula);
+    console.log('🆔 [LOGIN-OTP] idemsg:', idemsg);
+    console.log('🔢 [LOGIN-OTP] Código (longitud):', codigo?.length);
+
+    // Validaciones básicas
+    if (!cedula || !cedula.trim()) {
+      return {
+        success: false,
+        error: {
+          message: 'La cédula es requerida',
+          code: 'CEDULA_REQUIRED'
+        }
+      };
+    }
+
+    if (!idemsg || !idemsg.trim()) {
+      return {
+        success: false,
+        error: {
+          message: 'El identificador del mensaje es requerido',
+          code: 'IDEMSG_REQUIRED'
+        }
+      };
+    }
+
+    if (!codigo || !codigo.trim() || codigo.trim().length !== 6) {
+      return {
+        success: false,
+        error: {
+          message: 'El código debe tener 6 dígitos',
+          code: 'INVALID_CODE_LENGTH'
+        }
+      };
+    }
+
+    // Construir datos para proceso 2156 (validar OTP)
+    const validateData = {
+      prccode: this.processCodes.VALIDATE_SECURITY_CODE_REGISTRATION, // '2156'
+      idecl: cedula.trim(),
+      idemsg: idemsg.trim(),
+      codseg: codigo.trim()
+    };
+
+    console.log('📤 [LOGIN-OTP] Enviando validación de OTP:', {
+      ...validateData,
+      codseg: '***' + validateData.codseg.slice(-2)
+    });
+
+    const result = await this.makeRequest(validateData);
+
+    if (result.success) {
+      const validateResult = this.interpretServerResponse(result.data, 'validate_otp_login');
+
+      if (validateResult.success) {
+        console.log('✅ [LOGIN-OTP] Código OTP validado correctamente');
+        return {
+          success: true,
+          data: result.data,
+          message: 'Código OTP validado correctamente'
+        };
+      } else {
+        console.log('❌ [LOGIN-OTP] Código OTP incorrecto o expirado');
+        return {
+          success: false,
+          error: {
+            message: validateResult.error?.message || 'El código OTP es incorrecto o ha expirado',
+            code: 'INVALID_OTP'
           }
         };
       }
@@ -5821,31 +5984,41 @@ formatAccountNumberForDisplay(accountNumber) {
       };
     }
 
+    // ✅ CORRECCIÓN: Usar proceso 2156 (VALIDATE_SECURITY_CODE) para login OTP
+    // El proceso 2160 es para ACTUALIZAR contraseña, NO para validar OTP de login
+    
+    console.log('🔍 [2FA] ===== CONSTRUYENDO REQUEST PARA PROCESO 2156 =====');
+    console.log('🔍 [2FA] Parámetros recibidos:');
+    console.log('   - cedula:', cedula);
+    console.log('   - username:', username);
+    console.log('   - idemsg:', idemsg);
+    console.log('   - securityCode (ORIGINAL sin trim):', securityCode);
+    console.log('   - securityCode.length:', securityCode?.length);
+    console.log('   - securityCode tipo:', typeof securityCode);
+    
     const validateData = {
-      prccode: this.processCodes.UPDATE_PASSWORD, // '2160' - Usamos el mismo API
+      prccode: this.processCodes.VALIDATE_SECURITY_CODE_REGISTRATION, // '2156' - VALIDAR OTP
       idecl: cedula.trim(),
-      usr: username.trim(),
-      pwd: password.trim(), // LA MISMA contraseña que usó en login
       idemsg: idemsg.trim(),
       codseg: securityCode.trim()
     };
-
-    console.log('🔍 [2FA] Datos de validación:', {
-      prccode: validateData.prccode,
-      idecl: validateData.idecl,
-      usr: validateData.usr,
-      pwd: '***' + validateData.pwd.slice(-2),
-      idemsg: validateData.idemsg,
-      codseg: validateData.codseg
-    });
+    
+    console.log('🔍 [2FA] validateData construido:');
+    console.log('   - prccode:', validateData.prccode);
+    console.log('   - idecl:', validateData.idecl);
+    console.log('   - idemsg:', validateData.idemsg);
+    console.log('   - codseg:', validateData.codseg);
+    console.log('   - codseg.length:', validateData.codseg?.length);
+    console.log('🔍 [2FA] ===== ENVIANDO A makeRequest() =====');
 
     const result = await this.makeRequest(validateData);
 
     if (result.success) {
-      const validationResult = this.interpretServerResponse(result.data, 'update_password');
+      // ✅ CORRECCIÓN: Validar código OTP es exitoso si estado = '000'
+      const validationResult = this.interpretServerResponse(result.data, 'validate_otp_login');
 
       if (validationResult.success) {
-        console.log('✅ [2FA] Código validado correctamente');
+        console.log('✅ [2FA] Código OTP validado correctamente con proceso 2156');
         
         // AHORA SÍ guardamos la sesión ya que el 2FA está completo
         const sessionData = {
@@ -5865,14 +6038,16 @@ formatAccountNumberForDisplay(accountNumber) {
           message: 'Autenticación en dos pasos completada exitosamente'
         };
       } else {
-        console.log('❌ [2FA] Código inválido:', validationResult.error);
+        console.log('❌ [2FA] Código OTP inválido:', validationResult.error);
         
-        // Interpretar errores específicos del servidor
-        let errorMessage = 'Código de seguridad incorrecto';
-        if (result.data?.estado === '006') {
-          errorMessage = 'Código de seguridad no coincide';
+        // Interpretar errores específicos del servidor para proceso 2156
+        let errorMessage = 'Código OTP incorrecto';
+        if (result.data?.estado === '001') {
+          errorMessage = 'Código OTP no existe o es incorrecto';
+        } else if (result.data?.estado === '006') {
+          errorMessage = 'Código OTP no coincide';
         } else if (result.data?.estado === '007') {
-          errorMessage = 'Código de seguridad expirado';
+          errorMessage = 'Código OTP expirado';
         } else if (result.data?.msg) {
           errorMessage = result.data.msg;
         }

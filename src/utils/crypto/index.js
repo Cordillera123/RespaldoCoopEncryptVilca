@@ -130,14 +130,59 @@ export const encryptRequest = (requestData) => {
       }
     });
 
-    console.log('🔐 [ENCRYPT_REQUEST] ===== COMPARACIÓN POSTMAN =====');
+    console.log('🔐 [ENCRYPT_REQUEST] ===== COMPARACIÓN CON POSTMAN =====');
     if (processCode === '2100') {
-      console.log('🎯 Si usr="Josu1234" → debe ser "qRym2o7g3LG5tHnPWTgYQw=="');
-      console.log('🎯 Si pwd="Solstic2025-" → debe ser "z1fKJltbT3aDeHhLgCjQ0A=="');
-      console.log('🎯 usr actual:', encryptedData.usr || encryptedData.usuario);
-      console.log('🎯 pwd actual:', encryptedData.pwd || encryptedData.password);
-      console.log('🎯 ¿usr coincide?:', (encryptedData.usr || encryptedData.usuario) === 'qRym2o7g3LG5tHnPWTgYQw==');
-      console.log('🎯 ¿pwd coincide?:', (encryptedData.pwd || encryptedData.password) === 'z1fKJltbT3aDeHhLgCjQ0A==');
+      console.log('🎯 LOGIN: Si usr="Josu1234" → debe ser "qRym2o7g3LG5tHnPWTgYQw=="');
+      console.log('🎯 LOGIN: Si pwd="Solstic2025-" → debe ser "z1fKJltbT3aDeHhLgCjQ0A=="');
+      console.log('🎯 LOGIN: usr actual:', encryptedData.usr || encryptedData.usuario);
+      console.log('🎯 LOGIN: pwd actual:', encryptedData.pwd || encryptedData.password);
+      console.log('🎯 LOGIN: ¿usr coincide?:', (encryptedData.usr || encryptedData.usuario) === 'qRym2o7g3LG5tHnPWTgYQw==');
+      console.log('🎯 LOGIN: ¿pwd coincide?:', (encryptedData.pwd || encryptedData.password) === 'z1fKJltbT3aDeHhLgCjQ0A==');
+    }
+
+    if (processCode === '2155') {
+      console.log('📨 [DEBUG-2155] ===== SOLICITAR CÓDIGO OTP =====');
+      console.log('📨 [DEBUG-2155] idecl original:', requestData.idecl);
+      console.log('📨 [DEBUG-2155] idecl encriptado:', encryptedData.idecl);
+      console.log('📨 [DEBUG-2155] Campos configurados para encriptar:', fieldsToEncrypt);
+    }
+
+    if (processCode === '2156') {
+      console.log('🔐 [DEBUG-2156] ===== VALIDAR CÓDIGO OTP =====');
+      console.log('🔐 [DEBUG-2156] VALORES ORIGINALES:');
+      console.log('🔐 [DEBUG-2156]   idecl original:', requestData.idecl);
+      console.log('🔐 [DEBUG-2156]   idemsg original (YA ENCRIPTADO del proceso 2155):', requestData.idemsg);
+      console.log('🔐 [DEBUG-2156]   codseg original:', requestData.codseg);
+      console.log('🔐 [DEBUG-2156] VALORES ENCRIPTADOS:');
+      console.log('🔐 [DEBUG-2156]   idecl encriptado:', encryptedData.idecl);
+      console.log('🔐 [DEBUG-2156]   idemsg SIN CAMBIOS (ya venía encriptado):', encryptedData.idemsg);
+      console.log('🔐 [DEBUG-2156]   codseg encriptado:', encryptedData.codseg);
+      console.log('🔐 [DEBUG-2156] Campos configurados para encriptar:', fieldsToEncrypt);
+      console.log('🔐 [DEBUG-2156] ⚠️ IMPORTANTE: idemsg NO se encripta porque ya viene encriptado del proceso 2155');
+      console.log('🔐 [DEBUG-2156] Orden esperado del JSON: tkn, prccode, idecl, idemsg, codseg');
+    }
+
+    if (processCode === '2160') {
+      console.log('🎯 OTP: PROCESO 2160 - Validación de código OTP');
+      console.log('🎯 OTP: ===== VALORES ORIGINALES =====');
+      console.log('🎯 OTP: idecl original:', requestData.idecl);
+      console.log('🎯 OTP: usr original:', requestData.usr);
+      console.log('🎯 OTP: pwd original:', requestData.pwd);
+      console.log('🎯 OTP: idemsg original:', requestData.idemsg);
+      console.log('🎯 OTP: codseg original:', requestData.codseg);
+      console.log('🎯 OTP: ===== VALORES ENCRIPTADOS =====');
+      console.log('🎯 OTP: idecl (cédula):', encryptedData.idecl || 'NO ENCRIPTADO');
+      console.log('🎯 OTP: usr (usuario):', encryptedData.usr || 'NO ENCRIPTADO');
+      console.log('🎯 OTP: pwd (contraseña):', encryptedData.pwd || 'NO ENCRIPTADO');
+      console.log('🎯 OTP: idemsg (ID mensaje):', encryptedData.idemsg || 'NO ENCRIPTADO');
+      console.log('🎯 OTP: codseg (código OTP):', encryptedData.codseg || 'NO ENCRIPTADO');
+      console.log('🎯 OTP: ===== VERIFICACIÓN DE ENCRIPTACIÓN =====');
+      console.log('🎯 OTP: ¿idecl se encriptó?:', encryptedData.idecl !== requestData.idecl);
+      console.log('🎯 OTP: ¿usr se encriptó?:', encryptedData.usr !== requestData.usr);
+      console.log('🎯 OTP: ¿pwd se encriptó?:', encryptedData.pwd !== requestData.pwd);
+      console.log('🎯 OTP: ¿idemsg se encriptó?:', encryptedData.idemsg !== requestData.idemsg);
+      console.log('🎯 OTP: ¿codseg se encriptó?:', encryptedData.codseg !== requestData.codseg);
+      console.log('🎯 OTP: Campos configurados para encriptar:', fieldsToEncrypt);
     }
     console.log('🔐 [ENCRYPT_REQUEST] ===== FIN =====');
 
@@ -178,6 +223,10 @@ export const encryptRequest = (requestData) => {
  */
 export const decryptResponse = (responseData, processCode) => {
   try {
+    console.log('🔓 [DECRYPT_RESPONSE] ===== INICIO =====');
+    console.log('🔓 [DECRYPT_RESPONSE] processCode:', processCode);
+    console.log('🔓 [DECRYPT_RESPONSE] responseData completo:', responseData);
+    
     if (!responseData || typeof responseData !== 'object') {
       secureLog('WARNING', 'decryptResponse: responseData inválido');
       return responseData;
@@ -186,6 +235,7 @@ export const decryptResponse = (responseData, processCode) => {
     // Verificar si hay error en la respuesta (no desencriptar si hay error)
     if (responseData.estado && responseData.estado !== '000' && responseData.estado !== '1') {
       secureLog('INFO', `Response con error (estado: ${responseData.estado}), no se desencriptará`);
+      console.log('⚠️ [DECRYPT_RESPONSE] Response con error, no se desencriptará');
       return responseData;
     }
 
@@ -195,9 +245,25 @@ export const decryptResponse = (responseData, processCode) => {
     // ESTRATEGIA 2: Si hay process code, usar mapeo específico
     if (processCode && requiresEncryption(processCode)) {
       const fieldsToDecrypt = getDecryptFields(processCode);
+      console.log('🔓 [DECRYPT_RESPONSE] Campos a desencriptar según mapeo:', fieldsToDecrypt);
       
       if (fieldsToDecrypt.length > 0) {
+        // Desencriptar campos en el nivel raíz
         processed = decryptFields(processed, fieldsToDecrypt);
+        
+        // Si es proceso 2100 (login), desencriptar también en el array 'cliente'
+        if (processCode === '2100' && processed.cliente && Array.isArray(processed.cliente)) {
+          console.log('🔓 [DECRYPT_RESPONSE] Desencriptando array cliente para proceso 2100');
+          console.log('🔓 [DECRYPT_RESPONSE] Cliente ANTES:', processed.cliente[0]);
+          
+          processed.cliente = processed.cliente.map(clienteItem => {
+            const decryptedCliente = decryptFields(clienteItem, fieldsToDecrypt);
+            console.log('🔓 [DECRYPT_RESPONSE] Cliente item desencriptado:', decryptedCliente);
+            return decryptedCliente;
+          });
+          
+          console.log('🔓 [DECRYPT_RESPONSE] Cliente DESPUÉS:', processed.cliente[0]);
+        }
       }
     }
 
@@ -208,18 +274,57 @@ export const decryptResponse = (responseData, processCode) => {
       }
     });
 
-    // ESTRATEGIA 4: Procesar arrays
+    // ESTRATEGIA 4: Procesar arrays genéricamente
     Object.keys(processed).forEach(key => {
-      if (Array.isArray(processed[key])) {
+      if (Array.isArray(processed[key]) && key !== 'cliente') { // Skip cliente ya procesado
         processed[key] = autoDecryptArray(processed[key]);
       }
     });
+
+    console.log('🔓 [DECRYPT_RESPONSE] ===== COMPARACIÓN CON POSTMAN =====');
+    if (processCode === '2100' && processed.cliente && processed.cliente[0]) {
+      const cliente = processed.cliente[0];
+      console.log('🎯 LOGIN: idecli encriptado:', cliente.idecli);
+      console.log('🎯 LOGIN: Si idecli="b63Qn1ZzV/fDPgRvgRyp6A==" → debe ser "0200594729"');
+      
+      if (cliente.idecli) {
+        try {
+          const decryptedId = decrypt(cliente.idecli);
+          console.log('🎯 LOGIN: idecli desencriptado:', decryptedId);
+          console.log('🎯 LOGIN: ¿idecli coincide con cedula esperada?:', decryptedId === '0200594729');
+        } catch (e) {
+          console.log('❌ LOGIN: Error desencriptando idecli:', e.message);
+        }
+      }
+    }
+
+    if (processCode === '2160') {
+      console.log('🎯 OTP: PROCESO 2160 - Respuesta de validación OTP');
+      console.log('🎯 OTP: Estado respuesta:', processed.estado);
+      console.log('🎯 OTP: Mensaje respuesta:', processed.msg);
+      console.log('🎯 OTP: Campos disponibles:', Object.keys(processed));
+      
+      // Buscar campos encriptados en la respuesta
+      Object.keys(processed).forEach(key => {
+        if (key.endsWith('E')) {
+          console.log(`🎯 OTP: Campo encriptado encontrado: ${key} = ${processed[key]}`);
+          try {
+            const decrypted = decrypt(processed[key]);
+            console.log(`🎯 OTP: ${key} desencriptado: ${decrypted}`);
+          } catch (e) {
+            console.log(`❌ OTP: Error desencriptando ${key}:`, e.message);
+          }
+        }
+      });
+    }
+    console.log('🔓 [DECRYPT_RESPONSE] ===== FIN =====');
 
     secureLog('DECRYPT', `✅ Response ${processCode || 'sin código'} procesada correctamente`);
 
     return processed;
 
   } catch (error) {
+    console.error('❌ [DECRYPT_RESPONSE] ERROR:', error);
     secureLog('ERROR', 'Error en decryptResponse:', error.message);
     
     // En caso de error, retornar respuesta original

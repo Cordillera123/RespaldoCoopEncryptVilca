@@ -26,7 +26,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2100': {
     description: 'Login (validar credenciales)',
     encryptFields: ['usr', 'pwd', 'usuario', 'password'],
-    decryptFields: ['codctaE', 'ideclE']
+    decryptFields: ['idecli', 'tlfdom', 'tlftra', 'tlfcel', 'direma']
   },
 
   '2180': {
@@ -65,24 +65,48 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2151': {
     description: 'Validar fortaleza de contraseña (registro)',
     encryptFields: ['usr', 'pwd', 'identificacion', 'clave', 'password'],
-    decryptFields: []
+    // El backend devuelve 'idecli' e 'idemsg' en la respuesta; desencriptarlas
+    decryptFields: ['idecli', 'idemsg']
   },
 
   '2155': {
     description: 'Solicitar código de seguridad OTP',
-    encryptFields: ['idecl', 'identificacion', 'cuenta', 'tlfcel', 'telefono', 'celular'],
-    decryptFields: []
+    encryptFields: [
+      // Identificación del cliente
+      'idecl', 'identificacion',
+      // Cuentas relacionadas
+      'cuenta', 'codcta', 'codctac', 'codctad',
+      // Contactos (donde se envía el OTP)
+      'tlfcel', 'telefono', 'celular',
+      // Mensaje ID (si se reutiliza)
+      'idemsg'
+    ],
+    decryptFields: ['idecli', 'idemsg'] // El backend devuelve estos campos encriptados en el array cliente
   },
 
   '2156': {
-    description: 'Validar código de seguridad OTP (registro)',
-    encryptFields: ['idecl', 'identificacion', 'idemsg', 'codseg', 'codigo', 'codigoOTP'],
-    decryptFields: []
+    description: 'Validar código de seguridad OTP',  
+    encryptFields: [
+      // ⚠️ IMPORTANTE: idemsg NO se encripta aquí porque YA VIENE ENCRIPTADO del proceso 2155
+      'idecl',    // ✅ Identificación del cliente (se encripta)
+      'codseg'    // ✅ Código OTP ingresado (se encripta)
+      // ❌ idemsg - NO encriptar, ya viene encriptado del backend en proceso 2155
+    ],
+    decryptFields: [] // Solo devuelve estado y mensaje, no campos encriptados
   },
 
   '2160': {
     description: 'Actualizar/Registrar contraseña y Validar código 2FA',
-    encryptFields: ['identificacion', 'idecl', 'usr', 'pwd', 'clave', 'claveNueva', 'password', 'codseg', 'codigo', 'idemsg'],
+    encryptFields: [
+      // Identificación del cliente (CRÍTICO)
+      'idecl', 'identificacion',
+      // Usuario y contraseñas (CRÍTICO)
+      'usr', 'pwd', 'clave', 'claveNueva', 'password',
+      // Código OTP y mensaje ID (CRÍTICO para validación)
+      'codseg', 'codigo', 'idemsg',
+      // Campos adicionales del contexto
+      'detrsp', 'respuesta'
+    ],
     decryptFields: []
   },
 
