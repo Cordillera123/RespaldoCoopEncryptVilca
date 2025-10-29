@@ -1,6 +1,9 @@
 /**
  * @fileoverview Mapeo de campos sensibles que deben encriptarse según el process code
  * Este módulo define qué campos encriptar para cada API del backend
+ * 
+ * ⚠️ IMPORTANTE: NO encriptar códigos de catálogo (codifi, codtidr, codtcur)
+ * Última actualización: 2025-10-29 - Fix proceso 2365
  */
 
 import {
@@ -102,8 +105,9 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'idecl', 'identificacion',
       // Usuario y contraseñas (CRÍTICO)
       'usr', 'pwd', 'clave', 'claveNueva', 'password',
-      // Código OTP y mensaje ID (CRÍTICO para validación)
-      'codseg', 'codigo', 'idemsg',
+      // Código OTP (CRÍTICO para validación)
+      'codseg', 'codigo',
+      // ⚠️ NO ENCRIPTAR 'idemsg' - Ya viene desencriptado, backend espera valor original
       // Campos adicionales del contexto
       'detrsp', 'respuesta'
     ],
@@ -247,8 +251,8 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'codseg',         // Código seguridad OTP (SENSIBLE)
       'descripcion',
       'dettrnf',        // Detalle transferencia (SENSIBLE)
-      'referencia',
-      'idemsg'          // ID mensaje (SENSIBLE)
+      'referencia'
+      // ⚠️ NO ENCRIPTAR 'idemsg' - Ya viene desencriptado, backend espera valor original
     ],
     decryptFields: ['codctaE', 'valorE']
   },
@@ -259,6 +263,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2360': {
     description: 'Ejecutar transferencia externa (otros bancos)',
     encryptFields: [
+      // ✅ SOLO CAMPOS SENSIBLES - NO CÓDIGOS DE CATÁLOGO
       'identificacion',
       'idecl',          // Cédula del cliente (SENSIBLE)
       'ideclr',         // Cédula receptor (SENSIBLE)
@@ -280,10 +285,10 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'codigo',
       'codigoSeguridad',
       'bnfema',         // Email beneficiario (SENSIBLE)
-      'bnfcel',         // Celular beneficiario (SENSIBLE)
-      'idemsg'          // ID mensaje (SENSIBLE)
+      'bnfcel'          // Celular beneficiario (SENSIBLE)
+      // ⚠️ NO ENCRIPTAR 'idemsg' - Ya viene desencriptado, backend espera valor original
     ],
-    // NOTA: codifi, codtidr, codtcur, nomclr NO se encriptan (catálogos y nombres)
+    // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo), nomclr (nombres), idemsg
     decryptFields: ['valorE', 'saldoE']
   },
 
@@ -331,13 +336,13 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2310': {
     description: 'Obtener lista de instituciones financieras (bancos)',
     encryptFields: [],
-    decryptFields: []
+    decryptFields: ['codigoE', 'codE'] // Backend puede enviar códigos encriptados
   },
 
   '2320': {
     description: 'Obtener tipos de cuentas de captaciones',
     encryptFields: [],
-    decryptFields: []
+    decryptFields: ['codigoE', 'codE'] // Backend puede enviar códigos encriptados
   },
 
   // ========================================================================
@@ -352,7 +357,12 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2330': {
     description: 'Listar beneficiarios externos (otros bancos)',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['cuentaE', 'cuentaBeneficiarioE']
+    decryptFields: [
+      'cuentaE',              // Cuenta genérica encriptada
+      'cuentaBeneficiarioE',  // Cuenta beneficiario encriptada
+      'codctaE',              // Código cuenta encriptado (número de cuenta)
+      'codctacE'              // Código cuenta cooperativa encriptado
+    ]
   },
 
   '2335': {
@@ -370,29 +380,28 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2365': {
     description: 'Crear/agregar beneficiario',
     encryptFields: [
+      // ✅ SOLO CAMPOS SENSIBLES - NO CÓDIGOS DE CATÁLOGO
       'identificacion',
       'idecl',        // Cédula del cliente (SENSIBLE)
-      'ideclr',       // Cédula/RUC receptor (SENSIBLE)
-      'codctac',      // Número de cuenta (SENSIBLE)
+      'ideclr',       // Cédula/RUC receptor (SENSIBLE) 
+      'codctac',      // Número de cuenta beneficiario (SENSIBLE)
       'bnfema',       // Email beneficiario (SENSIBLE)
-      'bnfcel',       // Celular beneficiario (SENSIBLE)
-      'cuenta',
-      'cuentaBeneficiario',
-      'identificacionBeneficiario'
+      'bnfcel'        // Celular beneficiario (SENSIBLE)
     ],
-    // NOTA: codifi, codtidr, codtcur, nomclr NO se encriptan porque son códigos de catálogo y nombres
+    // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo), nomclr (nombre)
     decryptFields: ['codctaE', 'codctacE']
   },
 
   '2370': {
     description: 'Eliminar beneficiario',
     encryptFields: [
+      // ✅ SOLO CAMPOS SENSIBLES - NO CÓDIGOS DE CATÁLOGO
       'identificacion',
       'idecl',        // Cédula del cliente (SENSIBLE)
       'ideclr',       // Cédula/RUC receptor (SENSIBLE)
-      'codctac'       // Número de cuenta (SENSIBLE)
+      'codctac'       // Número de cuenta beneficiario (SENSIBLE)
     ],
-    // NOTA: codifi, codtidr, codtcur NO se encriptan porque son códigos de catálogo
+    // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo)
     decryptFields: []
   },
 
@@ -674,12 +683,18 @@ export const getMappingStats = () => {
 // ============================================================================
 
 if (import.meta.env.DEV) {
-  console.log('📋 Configuración de Field Mapper cargada:');
+  console.log('📋 Configuración de Field Mapper cargada (v2025-10-29):');
   const stats = getMappingStats();
   console.table(stats.processesByCategory);
   console.log(`✅ ${stats.totalMappedProcesses} procesos mapeados`);
   console.log(`🔒 ${stats.totalUniqueEncryptFields} campos únicos para encriptar`);
   console.log(`🔓 ${stats.totalUniqueDecryptFields} campos únicos para desencriptar`);
+  
+  // LOG ESPECÍFICO PARA PROCESO 2365
+  const process2365 = FIELD_MAPPING_BY_PROCESS['2365'];
+  console.log('🔍 [VERIFICACIÓN] Configuración proceso 2365 (Crear beneficiario):');
+  console.log('   📝 Campos a encriptar:', process2365.encryptFields);
+  console.log('   ⚠️ NO debe incluir: codifi, codtidr, codtcur');
 }
 
 // ============================================================================

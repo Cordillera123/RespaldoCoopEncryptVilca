@@ -144,34 +144,118 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
         apiService.getIdentificationTypes()
       ]);
 
-      // Procesar bancos
+      // Procesar bancos - DESENCRIPTAR CÓDIGOS
       if (banksResult.success) {
-        setBanks(banksResult.data.instituciones);
-        console.log('✅ [NEW-CONTACT] Bancos cargados:', banksResult.data.instituciones.length);
+        const { decrypt } = await import('@/utils/crypto/encryptionService');
+        
+        const processedBanks = banksResult.data.instituciones.map((inst) => {
+          let code = inst.code;
+          
+          // Detectar si el código está encriptado (Base64 de 24 caracteres)
+          const isEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(String(code)) && String(code).length === 24;
+          
+          // Si está encriptado, desencriptar
+          if (isEncrypted) {
+            try {
+              code = decrypt(code);
+              console.log('🔓 [NEW-CONTACT] Banco desencriptado:', inst.name, '→', code);
+            } catch (err) {
+              console.error('❌ [NEW-CONTACT] Error desencriptando código banco:', err);
+            }
+          }
+          
+          return {
+            ...inst,
+            code: code  // Código en texto plano
+          };
+        });
+        
+        setBanks(processedBanks);
+        console.log('✅ [NEW-CONTACT] Bancos cargados:', processedBanks.length);
+        console.log('🔍 [NEW-CONTACT] Primer banco como ejemplo:', {
+          name: processedBanks[0]?.name,
+          code: processedBanks[0]?.code,
+          codeType: typeof processedBanks[0]?.code,
+          isBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(processedBanks[0]?.code || '')
+        });
       } else {
         console.error('❌ [NEW-CONTACT] Error cargando bancos');
         setBanks([{ id: '1', code: '1', name: 'Error - Banco por defecto' }]);
       }
 
-      // Procesar tipos de cuenta
+      // Procesar tipos de cuenta - DESENCRIPTAR CÓDIGOS
       if (accountTypesResult.success) {
-        setAccountTypes(accountTypesResult.data.tiposCuenta);
-        console.log('✅ [NEW-CONTACT] Tipos de cuenta cargados:', accountTypesResult.data.tiposCuenta.length);
+        const { decrypt } = await import('@/utils/crypto/encryptionService');
+        
+        const processedAccountTypes = accountTypesResult.data.tiposCuenta.map((tipo) => {
+          let code = tipo.code;
+          
+          // Detectar si el código está encriptado (Base64 de 24 caracteres)
+          const isEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(String(code)) && String(code).length === 24;
+          
+          // Si está encriptado, desencriptar
+          if (isEncrypted) {
+            try {
+              code = decrypt(code);
+              console.log('🔓 [NEW-CONTACT] Tipo cuenta desencriptado:', tipo.name, '→', code);
+            } catch (err) {
+              console.error('❌ [NEW-CONTACT] Error desencriptando código tipo cuenta:', err);
+            }
+          }
+          
+          return {
+            ...tipo,
+            code: code  // Código en texto plano
+          };
+        });
+        
+        setAccountTypes(processedAccountTypes);
+        console.log('✅ [NEW-CONTACT] Tipos de cuenta cargados:', processedAccountTypes.length);
+        console.log('🔍 [NEW-CONTACT] Primer tipo de cuenta como ejemplo:', {
+          name: processedAccountTypes[0]?.name,
+          code: processedAccountTypes[0]?.code,
+          codeType: typeof processedAccountTypes[0]?.code,
+          isBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(processedAccountTypes[0]?.code || '')
+        });
       } else {
         console.error('❌ [NEW-CONTACT] Error cargando tipos de cuenta');
         setAccountTypes([{ id: '1', code: '1', name: 'Cuenta de Ahorros' }]);
       }
 
-      // Procesar tipos de identificación
+      // Procesar tipos de identificación - DESENCRIPTAR CÓDIGOS
       if (idTypesResult.success) {
-        setIdentificationTypes(idTypesResult.data.tiposIdentificacion);
-        console.log('✅ [NEW-CONTACT] Tipos de ID cargados:', idTypesResult.data.tiposIdentificacion.length);
+        const { decrypt } = await import('@/utils/crypto/encryptionService');
+        
+        const processedIdTypes = idTypesResult.data.tiposIdentificacion.map((tipo) => {
+          let code = tipo.code;
+          
+          // Detectar si el código está encriptado (Base64 de 24 caracteres)
+          const isEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(String(code)) && String(code).length === 24;
+          
+          // Si está encriptado, desencriptar
+          if (isEncrypted) {
+            try {
+              code = decrypt(code);
+              console.log('🔓 [NEW-CONTACT] Tipo ID desencriptado:', tipo.name, '→', code);
+            } catch (err) {
+              console.error('❌ [NEW-CONTACT] Error desencriptando código tipo ID:', err);
+            }
+          }
+          
+          return {
+            ...tipo,
+            code: code  // Código en texto plano
+          };
+        });
+        
+        setIdentificationTypes(processedIdTypes);
+        console.log('✅ [NEW-CONTACT] Tipos de ID cargados:', processedIdTypes.length);
 
         // Seleccionar primer tipo por defecto
-        if (idTypesResult.data.tiposIdentificacion.length > 0) {
+        if (processedIdTypes.length > 0) {
           setFormData(prev => ({
             ...prev,
-            identificationType: idTypesResult.data.tiposIdentificacion[0].code
+            identificationType: processedIdTypes[0].code
           }));
         }
       } else {
@@ -193,6 +277,14 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
     }
   };
   const handleBankSelect = (bank) => {
+    console.log('🏦 [NEW-CONTACT] Banco seleccionado:', {
+      name: bank.name,
+      code: bank.code,
+      codeType: typeof bank.code,
+      codeLength: bank.code?.length,
+      isBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(bank.code)
+    });
+    
     setFormData(prev => ({
       ...prev,
       bankDestination: bank.code
@@ -424,6 +516,13 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
       return;
     }
 
+    // ⚠️ IMPORTANTE: Asegurar que los códigos de catálogo sean valores SIMPLES (no encriptados)
+    // El backend necesita estos códigos en texto plano para buscar en sus catálogos
+    console.log('📝 [NEW-CONTACT] Preparando datos para beneficiario...');
+    console.log('🔍 [NEW-CONTACT] codifi (banco):', formData.bankDestination);
+    console.log('🔍 [NEW-CONTACT] codtidr (tipo ID):', formData.identificationType);
+    console.log('🔍 [NEW-CONTACT] codtcur (tipo cuenta):', formData.accountType);
+
     // Preparar datos para preguntas de seguridad
     const beneficiaryDataForQuestions = {
       beneficiaryName: formData.beneficiaryName,
@@ -433,16 +532,22 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
       accountNumber: formData.accountNumber,
       email: formData.email?.trim() || '',
       phone: formData.phone?.trim() || '',
-      // Datos para el registro final
-      codifi: formData.bankDestination,
-      codtidr: formData.identificationType,
+      // Datos para el registro final - CÓDIGOS EN TEXTO PLANO
+      codifi: formData.bankDestination.toString(), // ✅ Convertir a string por si acaso
+      codtidr: formData.identificationType.toString(), // ✅ Convertir a string por si acaso
       ideclr: formData.identificationNumber,
       nomclr: formData.beneficiaryName.trim(),
-      codtcur: formData.accountType,
+      codtcur: formData.accountType.toString(), // ✅ Convertir a string por si acaso
       codctac: formData.accountNumber.trim(),
       bnfema: formData.email?.trim() || '',
       bnfcel: formData.phone?.trim() || ''
     };
+
+    console.log('✅ [NEW-CONTACT] Datos preparados (códigos en texto plano):', {
+      codifi: beneficiaryDataForQuestions.codifi,
+      codtidr: beneficiaryDataForQuestions.codtidr,
+      codtcur: beneficiaryDataForQuestions.codtcur
+    });
 
     setVerificationResult(beneficiaryDataForQuestions);
     setCurrentStep('questions');

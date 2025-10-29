@@ -36,6 +36,36 @@ class ApiServiceTransfer {
   }
 
   /**
+   * 🔓 HELPER: Desencripta idemsg si viene encriptado desde el backend
+   * Centraliza la lógica de desencriptación para todos los métodos OTP
+   * @param {string} idemsg - El valor idemsg recibido del backend
+   * @param {string} context - Contexto para logging (ej: 'COOP-TRANSFER')
+   * @returns {string} - El idemsg desencriptado o el original si no está encriptado
+   */
+  decryptIdemsgIfNeeded(idemsg, context = 'OTP') {
+    if (!idemsg) return idemsg;
+
+    // Detectar si está encriptado (Base64 pattern)
+    const isEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(String(idemsg));
+    
+    if (isEncrypted && String(idemsg).length > 20) {
+      try {
+        const { decrypt } = require('@/utils/crypto/encryptionService');
+        const decryptedIdemsg = decrypt(idemsg);
+        console.log(`🔓 [${context}] idemsg desencriptado exitosamente`);
+        return decryptedIdemsg;
+      } catch (err) {
+        console.error(`❌ [${context}] Error desencriptando idemsg:`, err);
+        // Si falla, retornar el valor original como fallback
+        return idemsg;
+      }
+    }
+    
+    // No está encriptado o es muy corto, retornar tal cual
+    return idemsg;
+  }
+
+  /**
    * Método genérico para realizar peticiones HTTP
    */
   async makeRequest(data, options = {}) {
@@ -471,12 +501,19 @@ class ApiServiceTransfer {
 
       if (codeResult.success && result.data.cliente?.[0]?.idemsg) {
         console.log('✅ [COOP-TRANSFER] Código OTP solicitado exitosamente');
-        console.log('🆔 [COOP-TRANSFER] idemsg obtenido:', result.data.cliente[0].idemsg);
+        
+        // 🔓 DESENCRIPTAR idemsg usando helper
+        const idemsg = this.decryptIdemsgIfNeeded(
+          result.data.cliente[0].idemsg, 
+          'COOP-TRANSFER-OTP'
+        );
+        
+        console.log('🆔 [COOP-TRANSFER] idemsg procesado');
 
         return {
           success: true,
           data: {
-            idemsg: result.data.cliente[0].idemsg,
+            idemsg: idemsg,
             idecli: result.data.cliente[0].idecli,
             message: result.data.msg || 'Código de seguridad enviado'
           },

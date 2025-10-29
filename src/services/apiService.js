@@ -1,5 +1,6 @@
 // 🔐 IMPORTACIÓN: Sistema de encriptación
 import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
+import { decrypt } from '../utils/crypto/encryptionService.js';
 
 const API_CONFIG = {
   // URL única para TODAS las operaciones (servidor de PRODUCCIÓN)
@@ -90,6 +91,34 @@ class ApiService {
   constructor() {
     this.config = API_CONFIG;
     this.processCodes = PROCESS_CODES;
+  }
+
+  /**
+   * 🔓 HELPER: Desencriptar idemsg si viene encriptado desde el backend
+   * @param {string} idemsg - El idemsg potencialmente encriptado
+   * @param {string} context - Contexto para logging (ej: 'COOP-TRANSFER')
+   * @returns {string} idemsg en texto plano
+   */
+  decryptIdemsgIfNeeded(idemsg, context = 'API') {
+    if (!idemsg) return idemsg;
+    
+    // Detectar si está encriptado (Base64 largo)
+    const isEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(String(idemsg)) && String(idemsg).length > 20;
+    
+    if (isEncrypted) {
+      try {
+        const { decrypt } = require('@/utils/crypto/encryptionService');
+        const decryptedIdemsg = decrypt(idemsg);
+        console.log(`🔓 [${context}] idemsg desencriptado`);
+        return decryptedIdemsg;
+      } catch (err) {
+        console.error(`❌ [${context}] Error desencriptando idemsg:`, err);
+        // Si falla la desencriptación, devolver el valor original
+        return idemsg;
+      }
+    }
+    
+    return idemsg;
   }
 
   /**
@@ -1444,11 +1473,24 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
 
       if (codeResult.success && result.data.cliente?.[0]?.idemsg) {
         console.log('✅ [CHANGE-PWD] Código solicitado exitosamente');
-        console.log('🆔 [CHANGE-PWD] idemsg obtenido:', result.data.cliente[0].idemsg);
+        
+        // 🔓 DESENCRIPTAR idemsg usando helper
+        const idemsg = this.decryptIdemsgIfNeeded(
+          result.data.cliente[0].idemsg, 
+          'CHANGE-PWD-OTP'
+        );
+        
+        console.log('🆔 [CHANGE-PWD] idemsg procesado');
 
         return {
           success: true,
-          data: result.data,
+          data: {
+            ...result.data,
+            cliente: [{
+              ...result.data.cliente[0],
+              idemsg: idemsg
+            }]
+          },
           message: 'Código de seguridad enviado correctamente'
         };
       } else {
@@ -1997,12 +2039,19 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
 
       if (codeResult.success && result.data.cliente?.[0]?.idemsg) {
         console.log('✅ [SECURITY-REG] Código solicitado exitosamente');
-        console.log('🆔 [SECURITY-REG] idemsg obtenido:', result.data.cliente[0].idemsg);
+        
+        // 🔓 DESENCRIPTAR idemsg usando helper
+        const idemsg = this.decryptIdemsgIfNeeded(
+          result.data.cliente[0].idemsg, 
+          'SECURITY-REG-OTP'
+        );
+        
+        console.log('🆔 [SECURITY-REG] idemsg procesado');
 
         return {
           success: true,
           data: {
-            idemsg: result.data.cliente[0].idemsg,
+            idemsg: idemsg,
             idecli: result.data.cliente[0].idecli,
             message: result.data.msg
           },
@@ -2577,12 +2626,19 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
 
       if (codeResult.success && result.data.cliente?.[0]?.idemsg) {
         console.log('✅ [USER-REG] Código solicitado exitosamente');
-        console.log('🆔 [USER-REG] idemsg obtenido:', result.data.cliente[0].idemsg);
+        
+        // 🔓 DESENCRIPTAR idemsg usando helper
+        const idemsg = this.decryptIdemsgIfNeeded(
+          result.data.cliente[0].idemsg, 
+          'USER-REG-OTP'
+        );
+        
+        console.log('🆔 [USER-REG] idemsg procesado');
 
         return {
           success: true,
           data: {
-            idemsg: result.data.cliente[0].idemsg,
+            idemsg: idemsg,
             idecli: result.data.cliente[0].idecli,
             message: result.data.msg
           },
@@ -4779,11 +4835,13 @@ formatAccountNumberForDisplay(accountNumber) {
    */
   async deleteBeneficiary(beneficiaryData) {
     console.log('🗑️ [BENEFICIARIES] Eliminando beneficiario');
+    console.log('📋 [BENEFICIARIES] Datos recibidos:', beneficiaryData);
 
     // Validaciones básicas
     const requiredFields = ['idecl', 'codifi', 'ideclr', 'codtcur', 'codctac'];
     for (const field of requiredFields) {
       if (!beneficiaryData[field] || !beneficiaryData[field].toString().trim()) {
+        console.error(`❌ [BENEFICIARIES] Campo requerido faltante: ${field}`);
         return {
           success: false,
           error: {
@@ -4804,16 +4862,42 @@ formatAccountNumberForDisplay(accountNumber) {
       codctac: beneficiaryData.codctac.trim() // Número cuenta
     };
 
-    console.log('📤 [BENEFICIARIES] Datos para eliminar beneficiario:', {
-      ...deleteData,
-      idecl: '***' + deleteData.idecl.slice(-4),
-      ideclr: '***' + deleteData.ideclr.slice(-4)
-    });
+    // 🔓 DESENCRIPTAR codctac si viene encriptado (doble encriptación fix)
+    const isCodectacEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(deleteData.codctac) && deleteData.codctac.length > 20;
+    if (isCodectacEncrypted) {
+      try {
+        const decryptedCodectac = decrypt(deleteData.codctac);
+        console.log('� [BENEFICIARIES] codctac venía encriptado, desencriptando...');
+        console.log('   - Encriptado:', deleteData.codctac);
+        console.log('   - Desencriptado:', decryptedCodectac);
+        deleteData.codctac = decryptedCodectac;
+      } catch (err) {
+        console.error('❌ [BENEFICIARIES] Error desencriptando codctac:', err);
+        // Si falla, usar el valor original
+      }
+    }
+
+    console.log('�📤 [BENEFICIARIES] Datos ANTES de encriptar para eliminar beneficiario:');
+    console.log('   - prccode:', deleteData.prccode);
+    console.log('   - idecl:', deleteData.idecl, '(se encriptará)');
+    console.log('   - codifi:', deleteData.codifi, '(NO se encripta - catálogo)');
+    console.log('   - codtidr:', deleteData.codtidr, '(NO se encripta - catálogo)');
+    console.log('   - ideclr:', deleteData.ideclr, '(se encriptará)');
+    console.log('   - codtcur:', deleteData.codtcur, '(NO se encripta - catálogo)');
+    console.log('   - codctac:', deleteData.codctac, '(se encriptará - debe ser texto plano)');
+    console.log('   - ¿codctac es Base64?:', /^[A-Za-z0-9+/]*={0,2}$/.test(deleteData.codctac));
+    console.log('   - Longitud codctac:', deleteData.codctac.length);
 
     const result = await this.makeRequest(deleteData);
 
+    console.log('📨 [BENEFICIARIES] Respuesta del servidor:', result);
+
     if (result.success) {
       const deleteResult = this.interpretServerResponse(result.data, 'delete_beneficiary');
+
+      console.log('🔍 [BENEFICIARIES] Interpretación del resultado:', deleteResult);
+      console.log('🔍 [BENEFICIARIES] Estado del servidor:', result.data.estado);
+      console.log('🔍 [BENEFICIARIES] Mensaje del servidor:', result.data.msg);
 
       if (deleteResult.success && result.data.estado === '000') {
         console.log('✅ [BENEFICIARIES] Beneficiario eliminado exitosamente');
@@ -4828,6 +4912,7 @@ formatAccountNumberForDisplay(accountNumber) {
         };
       } else {
         console.error('❌ [BENEFICIARIES] Error al eliminar beneficiario:', result.data.msg);
+        console.error('❌ [BENEFICIARIES] Estado recibido:', result.data.estado);
 
         return {
           success: false,
@@ -4840,6 +4925,7 @@ formatAccountNumberForDisplay(accountNumber) {
       }
     }
 
+    console.error('❌ [BENEFICIARIES] Error en la petición al servidor');
     return result;
   }
 
@@ -5839,12 +5925,19 @@ formatAccountNumberForDisplay(accountNumber) {
 
     if (codeResult.success && result.data.cliente?.[0]?.idemsg) {
       console.log('✅ [INTERNAL-TRANSFER-OTP] Código OTP solicitado exitosamente');
-      console.log('🆔 [INTERNAL-TRANSFER-OTP] idemsg obtenido:', result.data.cliente[0].idemsg);
+      
+      // 🔓 DESENCRIPTAR idemsg usando helper
+      const idemsg = this.decryptIdemsgIfNeeded(
+        result.data.cliente[0].idemsg, 
+        'INTERNAL-TRANSFER-OTP'
+      );
+      
+      console.log('🆔 [INTERNAL-TRANSFER-OTP] idemsg procesado');
 
       return {
         success: true,
         data: {
-          idemsg: result.data.cliente[0].idemsg,
+          idemsg: idemsg,
           idecli: result.data.cliente[0].idecli,
           message: result.data.msg || 'Código de seguridad enviado'
         },
@@ -5920,13 +6013,20 @@ formatAccountNumberForDisplay(accountNumber) {
 
       if (codeResult.success && result.data.cliente?.[0]?.idemsg) {
         console.log('✅ [2FA] Código solicitado exitosamente');
-        console.log('📱 [2FA] idemsg recibido:', result.data.cliente[0].idemsg);
+        
+        // � DESENCRIPTAR idemsg usando helper
+        const idemsg = this.decryptIdemsgIfNeeded(
+          result.data.cliente[0].idemsg, 
+          '2FA-OTP'
+        );
+        
+        console.log('📱 [2FA] idemsg procesado');
         
         return {
           success: true,
           data: {
             ...result.data,
-            idemsg: result.data.cliente[0].idemsg,
+            idemsg: idemsg,
             cedula: cedula.trim()
           },
           message: 'Código de seguridad enviado a tu teléfono'
