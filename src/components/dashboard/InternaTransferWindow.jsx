@@ -165,17 +165,60 @@ const InternaTransferWindow = ({ openWindow }) => {
           isInternal: isReallyInternal
         };
       });
-
-      // Merge y dedupe por accountNumber+bankCode o por cedula
+      // Merge y dedupe - Mejorado para evitar duplicados
       const mergedMap = new Map();
 
       const pushToMap = (item) => {
-        const key = (item.accountNumber ? item.accountNumber : (item.cedula || item.id || Math.random().toString(36))) + '::' + (item.bankCode || item.bank || '');
-        if (!mergedMap.has(key)) mergedMap.set(key, item);
-        else {
+        // Crear múltiples claves para detectar duplicados de diferentes formas
+        const accountKey = `acc_${(item.accountNumber || '').trim()}`;
+        const cedulaKey = `ced_${(item.cedula || '').trim()}`;
+        const combinedKey = `${accountKey}_${(item.bankCode || item.bank || '').trim()}`;
+        
+        // Intentar encontrar duplicado usando diferentes combinaciones
+        let isDuplicate = false;
+        let existingKey = null;
+
+        // Buscar si ya existe con la misma combinación de cuenta + banco
+        if (item.accountNumber && item.accountNumber.trim()) {
+          for (const [key, value] of mergedMap.entries()) {
+            if (value.accountNumber === item.accountNumber && 
+                (value.bankCode === item.bankCode || value.bank === item.bank)) {
+              isDuplicate = true;
+              existingKey = key;
+              break;
+            }
+          }
+        }
+
+        // Si no se encontró duplicado, buscar por cédula + banco
+        if (!isDuplicate && item.cedula && item.cedula.trim()) {
+          for (const [key, value] of mergedMap.entries()) {
+            if (value.cedula === item.cedula && 
+                (value.bankCode === item.bankCode || value.bank === item.bank)) {
+              isDuplicate = true;
+              existingKey = key;
+              break;
+            }
+          }
+        }
+
+        if (isDuplicate && existingKey) {
+          // Ya existe, decidir cuál mantener
+          const existing = mergedMap.get(existingKey);
+          console.log(`🔄 [TRANSFER-DEDUPE] Duplicado detectado: ${item.name}`);
+          
           // Preferir la versión interna si hay conflicto
-          const existing = mergedMap.get(key);
-          if (!existing.isInternal && item.isInternal) mergedMap.set(key, item);
+          if (!existing.isInternal && item.isInternal) {
+            console.log(`✅ [TRANSFER-DEDUPE] Reemplazando con versión interna`);
+            mergedMap.set(existingKey, item);
+          } else {
+            console.log(`⏭️ [TRANSFER-DEDUPE] Manteniendo versión existente`);
+          }
+        } else {
+          // No existe, agregarlo con una clave única
+          const uniqueKey = combinedKey || `${cedulaKey}_${Date.now()}`;
+          console.log(`➕ [TRANSFER-DEDUPE] Agregando nuevo: ${item.name} (${uniqueKey})`);
+          mergedMap.set(uniqueKey, item);
         }
       };
 
@@ -183,8 +226,13 @@ const InternaTransferWindow = ({ openWindow }) => {
       normalizedExternal.forEach(pushToMap);
 
       const merged = Array.from(mergedMap.values());
-
-      console.log('✅ [TRANSFER] Beneficiarios combinados. externos:', normalizedExternal.length, 'internos:', normalizedCoop.length, 'total:', merged.length);
+      
+      console.log(`📊 [TRANSFER-DEDUPE] Resumen final:`);
+      console.log(`   - Externos recibidos: ${normalizedExternal.length}`);
+      console.log(`   - Internos recibidos: ${normalizedCoop.length}`);
+      console.log(`   - Total sin duplicados: ${merged.length}`);
+      console.log(`   - Duplicados eliminados: ${(normalizedExternal.length + normalizedCoop.length) - merged.length}`);
+      
       setBeneficiaries(merged);
     } catch (error) {
       console.error('💥 [TRANSFER] Error inesperado:', error);

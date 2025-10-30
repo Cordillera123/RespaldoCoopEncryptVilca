@@ -196,9 +196,9 @@ export const FIELD_MAPPING_BY_PROCESS = {
   // CONSULTAS DE CUENTAS
   // ========================================================================
   '2300': {
-    description: 'Listar cuentas del usuario',
+    description: 'Listar cuentas del usuario (origen para transferencias/certificados)',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['codctaE', 'ideclE', 'saldoE']
+    decryptFields: ['codctaE', 'ideclE', 'saldoE', 'salcntE', 'saldisE']
   },
 
   '2301': {
@@ -433,9 +433,9 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   '2374': {
-    description: 'Listar cuentas para inversión',
+    description: 'Listar cuentas (para inversión o certificados)',
     encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto'],
-    decryptFields: ['codctaE', 'saldoE', 'valorE', 'montoE']
+    decryptFields: ['codctaE', 'saldoE', 'valorE', 'montoE', 'salcntE', 'saldisE']
   },
 
   '2375': {
@@ -461,14 +461,31 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   // ========================================================================
-  // PRODUCTOS
+  // CERTIFICADOS BANCARIOS
   // ========================================================================
   '2400': {
-    description: 'Productos de ahorro',
-    encryptFields: ['identificacion', 'idecl', 'cuenta', 'codcta', 'monto', 'valor'],
-    decryptFields: ['codctaE', 'saldoE', 'montoE']
+    description: 'Obtener costo del certificado',
+    encryptFields: ['identificacion', 'idecl'],
+    decryptFields: ['valcmsE'] // Valor del costo del certificado
   },
 
+  '2401': {
+    description: 'Generar certificado consolidado con OTP',
+    encryptFields: [
+      'identificacion',
+      'idecl',        // Cédula del cliente
+      'codcta',       // Cuenta a debitar el costo
+      'valtrnf',      // Valor del certificado (costo)
+      'codseg'        // Código OTP ingresado por el usuario
+      // NOTA: idemsg NO se encripta (viene del backend ya procesado)
+      // NOTA: tpvisu NO se encripta (1=saldo, 2=cifras - código de catálogo)
+    ],
+    decryptFields: ['codctaE', 'valorE', 'valtrnfE'] // Respuesta con datos del certificado
+  },
+
+  // ========================================================================
+  // PRODUCTOS (SERVICIOS LEGACY)
+  // ========================================================================
   '2410': {
     description: 'Productos de crédito',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'monto', 'valor'],
