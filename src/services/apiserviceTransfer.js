@@ -2,6 +2,7 @@ import apiService from './apiService';
 
 // 🔐 IMPORTACIÓN: Sistema de encriptación
 import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
+import { decrypt } from '../utils/crypto/encryptionService.js';
 
 /**
  * API Service especializado para transferencias entre usuarios de CACVIL (Cooperativa Vilcabamba)
@@ -299,6 +300,28 @@ class ApiServiceTransfer {
   }
 
   /**
+   * Desencripta un número de cuenta si está encriptado
+   * @param {string} accountNumber - Número de cuenta potencialmente encriptado
+   * @returns {string} - Número de cuenta desencriptado
+   */
+  decryptAccountNumber(accountNumber) {
+    if (!accountNumber) return '';
+    
+    // Si la cuenta tiene el patrón de encriptación (contiene = o es muy larga)
+    if (accountNumber.includes('=') || accountNumber.length > 20) {
+      try {
+        const decrypted = decrypt(accountNumber);
+        console.log(`🔓 [DECRYPT-ACCOUNT] ${accountNumber} → ${decrypted}`);
+        return decrypted;
+      } catch (error) {
+        console.error(`❌ [DECRYPT-ACCOUNT] Error desencriptando: ${accountNumber}`, error);
+        return accountNumber; // Devolver original si falla
+      }
+    }
+    return accountNumber; // Ya está en texto plano
+  }
+
+  /**
    * 2. Obtener beneficiarios de la misma cooperativa (API 2325)
    */
   async getCoopBeneficiariesDestination(cedula) {
@@ -364,7 +387,8 @@ class ApiServiceTransfer {
             phone: beneficiario.bnfcel?.trim() || '',
             bank: beneficiario.nomifi || 'COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA',
             bankCode: beneficiario.codifi || 'CACVIL', // Valor por defecto, pero se usa el que viene de la API
-            accountNumber: beneficiario.codcta,
+            accountNumber: this.decryptAccountNumber(beneficiario.codcta), // 🔓 Desencriptar para mostrar
+            accountNumberEncrypted: beneficiario.codcta, // 🔐 Preservar ORIGINAL para eliminación
             accountType: beneficiario.destcu || 'CUENTA DE AHORRO',
             accountTypeCode: beneficiario.codtcu,
             documentType: beneficiario.codtid,

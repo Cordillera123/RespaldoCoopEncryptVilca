@@ -4458,6 +4458,27 @@ formatAccountNumberForDisplay(accountNumber) {
 
     return movements.reverse(); // Mostrar más recientes primero
   }
+
+  /**
+   * Helper: Desencriptar número de cuenta si viene encriptado
+   */
+  decryptAccountNumber(accountNumber) {
+    if (!accountNumber) return '';
+    
+    // Si la cuenta tiene el patrón de encriptación (contiene = o es muy larga)
+    if (accountNumber.includes('=') || accountNumber.length > 20) {
+      try {
+        const decrypted = decrypt(accountNumber);
+        console.log(`🔓 [DECRYPT-ACCOUNT] ${accountNumber} → ${decrypted}`);
+        return decrypted;
+      } catch (error) {
+        console.error(`❌ [DECRYPT-ACCOUNT] Error desencriptando: ${accountNumber}`, error);
+        return accountNumber; // Devolver original si falla
+      }
+    }
+    return accountNumber; // Ya está en texto plano
+  }
+
   async getBeneficiaries(cedula) {
     console.log('👥 [BENEFICIARIES] Obteniendo beneficiarios para cédula:', cedula);
 
@@ -4511,7 +4532,8 @@ formatAccountNumberForDisplay(accountNumber) {
             // Información bancaria
             bank: beneficiario.nomifi || 'Banco no especificado',
             bankCode: beneficiario.codifi,
-            accountNumber: beneficiario.codcta,
+            accountNumber: this.decryptAccountNumber(beneficiario.codcta), // Desencriptar para mostrar
+            accountNumberEncrypted: beneficiario.codcta, // Preservar original para eliminación
             accountType: beneficiario.destcu || 'Cuenta de Ahorros',
             accountTypeCode: beneficiario.codtcu,
 
@@ -4663,7 +4685,8 @@ formatAccountNumberForDisplay(accountNumber) {
             // Información bancaria
             bank: beneficiario.nomifi || 'Banco no especificado',
             bankCode: beneficiario.codifi,
-            accountNumber: beneficiario.codcta,
+            accountNumber: this.decryptAccountNumber(beneficiario.codcta), // Desencriptar para mostrar
+            accountNumberEncrypted: beneficiario.codcta, // Preservar original para eliminación
             accountType: beneficiario.destcu || 'Cuenta de Ahorros',
             accountTypeCode: beneficiario.codtcu,
 
@@ -4859,34 +4882,35 @@ formatAccountNumberForDisplay(accountNumber) {
       codtidr: beneficiaryData.codtidr || '1', // Tipo doc receptor (default 1)
       ideclr: beneficiaryData.ideclr.trim(), // Cédula receptor
       codtcur: beneficiaryData.codtcur.toString(), // Tipo cuenta receptor
-      codctac: beneficiaryData.codctac.trim() // Número cuenta
+      codctac: beneficiaryData.codctac.trim() // Número cuenta (ENCRIPTADO desde DB)
     };
 
-    // 🔓 DESENCRIPTAR codctac si viene encriptado (doble encriptación fix)
+    // ⚠️ IMPORTANTE: NO desencriptar codctac aquí
+    // El valor debe ir TAL CUAL viene de la base de datos (doblemente encriptado)
+    // El backend NO debe encriptar este campo en el proceso 2370
+    // Ver: INSTRUCCIONES_BACKEND_ELIMINAR_BENEFICIARIOS.md
+    
+    /* COMENTADO - Causaba triple encriptación
     const isCodectacEncrypted = /^[A-Za-z0-9+/]*={0,2}$/.test(deleteData.codctac) && deleteData.codctac.length > 20;
     if (isCodectacEncrypted) {
       try {
         const decryptedCodectac = decrypt(deleteData.codctac);
-        console.log('� [BENEFICIARIES] codctac venía encriptado, desencriptando...');
-        console.log('   - Encriptado:', deleteData.codctac);
-        console.log('   - Desencriptado:', decryptedCodectac);
         deleteData.codctac = decryptedCodectac;
       } catch (err) {
-        console.error('❌ [BENEFICIARIES] Error desencriptando codctac:', err);
-        // Si falla, usar el valor original
+        console.error('❌ Error desencriptando codctac:', err);
       }
     }
+    */
 
-    console.log('�📤 [BENEFICIARIES] Datos ANTES de encriptar para eliminar beneficiario:');
+    console.log('📤 [BENEFICIARIES] Datos para eliminar beneficiario:');
     console.log('   - prccode:', deleteData.prccode);
-    console.log('   - idecl:', deleteData.idecl, '(se encriptará)');
-    console.log('   - codifi:', deleteData.codifi, '(NO se encripta - catálogo)');
-    console.log('   - codtidr:', deleteData.codtidr, '(NO se encripta - catálogo)');
-    console.log('   - ideclr:', deleteData.ideclr, '(se encriptará)');
-    console.log('   - codtcur:', deleteData.codtcur, '(NO se encripta - catálogo)');
-    console.log('   - codctac:', deleteData.codctac, '(se encriptará - debe ser texto plano)');
-    console.log('   - ¿codctac es Base64?:', /^[A-Za-z0-9+/]*={0,2}$/.test(deleteData.codctac));
-    console.log('   - Longitud codctac:', deleteData.codctac.length);
+    console.log('   - idecl:', '***' + deleteData.idecl.slice(-4), '(se encriptará)');
+    console.log('   - codifi:', deleteData.codifi);
+    console.log('   - codtidr:', deleteData.codtidr);
+    console.log('   - ideclr:', '***' + deleteData.ideclr.slice(-4), '(se encriptará)');
+    console.log('   - codtcur:', deleteData.codtcur);
+    console.log('   - codctac:', deleteData.codctac.substring(0, 30) + '...', '(ENCRIPTADO - sin modificar)');
+    console.log('   ⚠️ Backend debe usar codctac SIN desencriptar en la query DELETE');
 
     const result = await this.makeRequest(deleteData);
 
@@ -5043,7 +5067,8 @@ formatAccountNumberForDisplay(accountNumber) {
             phone: beneficiario.bnfcel?.trim() || '',
             bank: beneficiario.nomifi || 'Banco no especificado',
             bankCode: beneficiario.codifi,
-            accountNumber: beneficiario.codcta,
+            accountNumber: this.decryptAccountNumber(beneficiario.codcta), // Desencriptar para mostrar
+            accountNumberEncrypted: beneficiario.codcta, // Preservar original para eliminación
             accountType: beneficiario.destcu || 'Cuenta de Ahorros',
             accountTypeCode: beneficiario.codtcu,
             documentType: beneficiario.codtid,

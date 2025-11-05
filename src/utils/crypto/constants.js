@@ -213,6 +213,7 @@ export const ENCRYPTION_PROCESS_CODES = {
   // PRODUCTOS
   PRODUCTS: [
     '2400',  // Productos de ahorro
+    '2401',  // ✅ Generar certificado bancario con débito (NUEVO)
     '2410',  // Productos de crédito
     '2420',  // Productos de seguros
     '2430'   // Productos de tarjetas
