@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import apiService from '../../services/apiService';
 import apiServiceTransfer from '../../services/apiserviceTransfer';
+import { decrypt } from '../../utils/crypto/index.js';
 import NewContact from './NewContact';
 import SameAccounts from './SameAccounts';
 import TransferCoopint from './TransferCoopint';
@@ -128,41 +129,83 @@ const InternaTransferWindow = ({ openWindow }) => {
 
       console.log(`✅ [TRANSFER] Beneficiarios cargados - Externos: ${externalList.length}, Cooperativa: ${coopList.length}`);
 
-      // Función para detectar si es CACVIL (Cooperativa Vilcabamba)
-      const isCoopVilcabamba = (beneficiario) => {
-        const bankCode = beneficiario.bankCode || '';
-        const bankName = (beneficiario.bank || '').toUpperCase();
+      // **NUEVO: Obtener código de institución del usuario actual**
+      // Lo obtenemos desde sessionStorage o desde la primera cuenta
+      let userInstitutionCode = null;
+      try {
+        const sessionData = JSON.parse(sessionStorage.getItem('session') || '{}');
+        // Intentar obtener desde cuentas del usuario
+        if (sessionData.userData?.cuentas && Array.isArray(sessionData.userData.cuentas) && sessionData.userData.cuentas.length > 0) {
+          userInstitutionCode = sessionData.userData.cuentas[0].codifi;
+          console.log(`🏦 [TRANSFER] Código institución del usuario: ${userInstitutionCode}`);
+        }
+      } catch (err) {
+        console.warn('⚠️ [TRANSFER] No se pudo obtener código de institución del usuario:', err);
+      }
+
+      // Función para determinar si un beneficiario es de la MISMA institución
+      // Basado en el código de institución (codifi), NO en el nombre del banco
+      const isSameInstitution = (beneficiario) => {
+        const beneficiaryCode = beneficiario.bankCode || beneficiario.codifi || '';
         
-        // Solo CACVIL/Vilcabamba es cooperativa interna
-        // Las Naves (código 136) ahora es EXTERNA
-        return bankCode === 'CACVIL' || 
-               bankCode === '999' ||
-               bankName.includes('CACVIL') ||
-               bankName.includes('VILCABAMBA') ||
-               bankName.includes('COOPERATIVA VILCABAMBA');
+        // Si no tenemos código de usuario, usar código 136 por defecto (COOP AC LAS NAVES)
+        const currentUserCode = userInstitutionCode || '136';
+        
+        console.log(`🔍 [TRANSFER] Comparando códigos - Usuario: ${currentUserCode} vs Beneficiario: ${beneficiaryCode} (${beneficiario.bank})`);
+        
+        return beneficiaryCode === currentUserCode;
+      };
+
+      // **NUEVO: Desencriptar cuentas que vienen encriptadas**
+      const decryptAccountIfNeeded = (accountNumber) => {
+        if (!accountNumber) return '';
+        
+        // Si la cuenta tiene el patrón de encriptación (contiene = o es muy larga)
+        if (accountNumber.includes('=') || accountNumber.length > 20) {
+          try {
+            const decrypted = decrypt(accountNumber);
+            console.log(`🔓 [TRANSFER] Cuenta desencriptada: ${accountNumber} → ${decrypted}`);
+            return decrypted;
+          } catch (error) {
+            console.error(`❌ [TRANSFER] Error desencriptando cuenta ${accountNumber}:`, error);
+            return accountNumber; // Devolver original si falla
+          }
+        }
+        return accountNumber; // Ya está en texto plano
       };
 
       // Normalizar y RE-VALIDAR beneficiarios cooperativa
-      // Solo marcar como internos si realmente son CACVIL
+      // Usar codifi en lugar del nombre del banco
       const normalizedCoop = (coopList || []).map(b => {
-        const isReallyInternal = isCoopVilcabamba(b);
-        console.log(`🔍 [TRANSFER] Beneficiario cooperativo: ${b.name} (${b.bank}) - ¿Es CACVIL?: ${isReallyInternal}`);
+        const isInternal = isSameInstitution(b);
+        const originalAccount = b.accountNumber || b.codcta;
+        const decryptedAccount = decryptAccountIfNeeded(originalAccount);
+        
+        console.log(`🔍 [TRANSFER] Beneficiario cooperativo: ${b.name} (${b.bank}, cod: ${b.bankCode || b.codifi}) - ¿Misma institución?: ${isInternal}`);
+        
         return {
           ...b,
-          isCoopMember: isReallyInternal,
-          isInternal: isReallyInternal
+          accountNumber: decryptedAccount, // Mostrar cuenta desencriptada
+          accountNumberEncrypted: originalAccount, // Preservar original encriptado para eliminación
+          isCoopMember: isInternal,
+          isInternal: isInternal
         };
       });
 
-      // Para beneficiarios externos, RECALCULAR si son realmente de CACVIL
-      // (no confiar en el isCoopMember que viene de la API)
+      // Para beneficiarios externos, RECALCULAR basado en codifi
       const normalizedExternal = (externalList || []).map(b => {
-        const isReallyInternal = isCoopVilcabamba(b);
-        console.log(`🔍 [TRANSFER] Beneficiario externo: ${b.name} (${b.bank}) - ¿Es CACVIL?: ${isReallyInternal}`);
+        const isInternal = isSameInstitution(b);
+        const originalAccount = b.accountNumber || b.codcta;
+        const decryptedAccount = decryptAccountIfNeeded(originalAccount);
+        
+        console.log(`🔍 [TRANSFER] Beneficiario externo: ${b.name} (${b.bank}, cod: ${b.bankCode || b.codifi}) - ¿Misma institución?: ${isInternal}`);
+        
         return {
           ...b,
-          isCoopMember: isReallyInternal,
-          isInternal: isReallyInternal
+          accountNumber: decryptedAccount, // Mostrar cuenta desencriptada
+          accountNumberEncrypted: originalAccount, // Preservar original encriptado para eliminación
+          isCoopMember: isInternal,
+          isInternal: isInternal
         };
       });
       // Merge y dedupe - Mejorado para evitar duplicados
@@ -348,19 +391,36 @@ const InternaTransferWindow = ({ openWindow }) => {
 
       console.log('🗑️ [TRANSFER] Eliminando contacto:', contact.name);
 
+      // Usar cuenta encriptada original si existe, sino usar la actual
+      const accountToDelete = contact.accountNumberEncrypted || contact.accountNumber;
+      
+      console.log('🔐 [TRANSFER] Cuenta a eliminar:', {
+        mostrada: contact.accountNumber,
+        enviarAlBackend: accountToDelete
+      });
+
       const deleteData = {
         codifi: contact.bankCode,
         codtidr: contact.documentType || '1',
         ideclr: contact.cedula,
         codtcur: contact.accountTypeCode,
-        codctac: contact.accountNumber
+        codctac: accountToDelete // Usar cuenta encriptada original
       };
 
       const result = await apiService.deleteBeneficiaryForCurrentUser(deleteData);
 
       if (result.success) {
         console.log('✅ [TRANSFER] Contacto eliminado exitosamente');
+        
+        // Eliminar del estado local inmediatamente
         setBeneficiaries(prev => prev.filter(b => b.id !== contact.id));
+        
+        // Recargar lista desde el servidor para confirmar eliminación
+        console.log('🔄 [TRANSFER] Recargando lista de beneficiarios desde el servidor...');
+        setTimeout(() => {
+          loadBeneficiaries();
+        }, 500); // Pequeño delay para que el backend procese
+        
         alert('Beneficiario eliminado correctamente');
       } else {
         console.error('❌ [TRANSFER] Error al eliminar contacto:', result.error.message);
@@ -374,19 +434,27 @@ const InternaTransferWindow = ({ openWindow }) => {
     }
   };
 
-  // FUNCIÓN: Determinar si el beneficiario es de CACVIL (Cooperativa Vilcabamba) o externo
+  // FUNCIÓN: Determinar si el beneficiario es de la MISMA INSTITUCIÓN (interna) o externo
   const isCoopVilcabamba = (contact) => {
-    // Verificar por código de banco CACVIL
-    // Nota: Actualizar este código según el código oficial de CACVIL en el sistema bancario
+    // ✅ CÓDIGO 136 = COOP AC LAS NAVES LTDA (La institución propia)
+    // Debe tratarse como transferencia INTERNA (proceso 2325/2355)
+    // NO como externa (proceso 2330/2360)
+    if (contact.bankCode === '136') {
+      return true;
+    }
+
+    // Verificar por código de banco CACVIL (por si cambian el nombre a futuro)
     if (contact.bankCode === 'CACVIL' || contact.bankCode === '999') {
       return true;
     }
 
-    // Verificar por nombre del banco
+    // Verificar por nombre del banco (Las Naves o Vilcabamba)
     const bankName = contact.bank || contact.bankName || '';
     const upperBankName = bankName.toUpperCase();
     
-    return upperBankName.includes('CACVIL') ||
+    return upperBankName.includes('LAS NAVES') ||
+      upperBankName.includes('NAVES') ||
+      upperBankName.includes('CACVIL') ||
       upperBankName.includes('VILCABAMBA') ||
       upperBankName.includes('COOPERATIVA VILCABAMBA') ||
       upperBankName.includes('COOP VILCABAMBA') ||
@@ -405,10 +473,10 @@ const InternaTransferWindow = ({ openWindow }) => {
     setSelectedContactForTransfer(contact);
 
     if (isCoopVilcabamba(contact)) {
-      console.log('✅ [TRANSFER-ROUTE] Es miembro de CACVIL (Cooperativa Vilcabamba), redirigiendo a TransferCoopint');
+      console.log('✅ [TRANSFER-ROUTE] Es de la MISMA INSTITUCIÓN (código 136 o CACVIL), usando transferencia INTERNA (proceso 2325/2355)');
       setCurrentView('transferCoop');
     } else {
-      console.log('🌐 [TRANSFER-ROUTE] Es banco externo, redirigiendo a TransferExt');
+      console.log('🌐 [TRANSFER-ROUTE] Es banco externo (otro banco), usando transferencia INTERBANCARIA (proceso 2330/2360)');
       setCurrentView('transferExt');
     }
   };

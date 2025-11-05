@@ -395,13 +395,16 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2370': {
     description: 'Eliminar beneficiario',
     encryptFields: [
-      // ✅ SOLO CAMPOS SENSIBLES - NO CÓDIGOS DE CATÁLOGO
+      // ✅ SOLO CAMPOS SENSIBLES QUE VIENEN EN TEXTO PLANO
       'identificacion',
-      'idecl',        // Cédula del cliente (SENSIBLE)
-      'ideclr',       // Cédula/RUC receptor (SENSIBLE)
-      'codctac'       // Número de cuenta beneficiario (SENSIBLE)
+      'idecl',        // Cédula del cliente (SENSIBLE - texto plano)
+      'ideclr'        // Cédula/RUC receptor (SENSIBLE - texto plano)
+      // ⚠️ REMOVIDO 'codctac' - Ya viene ENCRIPTADO desde la DB
+      // El backend NO debe encriptar ni desencriptar este campo
+      // Debe usarlo tal cual para el DELETE en la base de datos
     ],
     // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo)
+    // ❌ NO ENCRIPTAR: codctac (ya viene encriptado desde DB)
     decryptFields: []
   },
 
@@ -470,17 +473,15 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   '2401': {
-    description: 'Generar certificado consolidado con OTP',
+    description: 'Generar certificado bancario con débito',
     encryptFields: [
       'identificacion',
-      'idecl',        // Cédula del cliente
-      'codcta',       // Cuenta a debitar el costo
-      'valtrnf',      // Valor del certificado (costo)
-      'codseg'        // Código OTP ingresado por el usuario
-      // NOTA: idemsg NO se encripta (viene del backend ya procesado)
-      // NOTA: tpvisu NO se encripta (1=saldo, 2=cifras - código de catálogo)
+      'idecl',        // Cédula del cliente (SENSIBLE)
+      'codctad',      // Cuenta a debitar el costo (SENSIBLE)
+      'valtrns'       // ✅ CORRECTO: Valor del certificado (según backend del ingeniero)
+      // ❌ NO ENCRIPTAR: ctrvalor (código de catálogo - tipo de transacción)
     ],
-    decryptFields: ['codctaE', 'valorE', 'valtrnfE'] // Respuesta con datos del certificado
+    decryptFields: ['codctaE', 'valorE', 'saldoE'] // Respuesta con datos del certificado
   },
 
   // ========================================================================

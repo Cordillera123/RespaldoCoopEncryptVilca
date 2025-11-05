@@ -56,11 +56,30 @@ class ApiServiceCertificados {
     console.log('🔧 [CERT] Configurando petición de certificados...');
     console.log('🌐 [CERT] URL:', this.config.baseUrl);
     console.log('📋 [CERT] Código de proceso:', data.prccode);
+    console.log('📋 [CERT] Datos ANTES de encriptar:', {
+      prccode: data.prccode,
+      idecl: data.idecl ? '***' + data.idecl.slice(-4) : 'N/A',
+      codctad: data.codctad ? '***' + data.codctad.slice(-4) : 'N/A',
+      valtrnf: data.valtrnf || 'N/A',
+      tcrvalor: data.tcrvalor || 'N/A'
+    });
 
     try {
       // 🔐 PASO 1: Encriptar datos sensibles según el process code
+      console.log('🔐 [CERT] ===== INICIANDO ENCRIPTACIÓN =====');
+      console.log('🔐 [CERT] Datos originales completos:', JSON.stringify(data, null, 2));
+      
       const encryptedData = encryptRequest(data);
-      console.log('✅ [CERT] Datos encriptados aplicados');
+      
+      console.log('🔐 [CERT] Datos encriptados completos:', JSON.stringify(encryptedData, null, 2));
+      console.log('✅ [CERT] Datos DESPUÉS de encriptar:', {
+        prccode: encryptedData.prccode,
+        idecl: encryptedData.idecl?.substring(0, 30) + '... (length: ' + (encryptedData.idecl?.length || 0) + ')',
+        codctad: encryptedData.codctad?.substring(0, 30) + '... (length: ' + (encryptedData.codctad?.length || 0) + ')',
+        valtrnf: encryptedData.valtrnf?.substring(0, 30) + '... (length: ' + (encryptedData.valtrnf?.length || 0) + ')',
+        tcrvalor: encryptedData.tcrvalor
+      });
+      console.log('🔐 [CERT] ===== FIN ENCRIPTACIÓN =====');
 
       const requestOptions = {
         method: 'POST',

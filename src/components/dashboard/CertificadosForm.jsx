@@ -9,6 +9,7 @@ import {
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import apiServiceCertificados from '../../services/apiServiceCertificados';
+import { decrypt } from '../../utils/crypto/encryptionService'; // ✅ Importar decrypt para desencriptar cédula
 
 /**
  * Componente para generación de certificados bancarios consolidados
@@ -243,35 +244,98 @@ const CertificadosForm = () => {
       // NOTA: Esta es versión simplificada SIN OTP - Usamos makeRequest directamente
       console.log('🔄 [CERT-FORM] Llamando servicio 2401 para generar certificado...');
       
+      // 🔐 PREPARAR DATOS PARA PROCESO 2401: Generar certificado con débito
+      console.log('🔍 [CERT-FORM] Preparando datos - userInfo:', {
+        nombre: userInfo.nombre,
+        cedula: userInfo.cedula,
+        email: userInfo.email
+      });
+      console.log('🔍 [CERT-FORM] Preparando datos - formData.cuentaPago:', formData.cuentaPago);
+      console.log('🔍 [CERT-FORM] Preparando datos - costoCertificado:', costoCertificado);
+
+      // Validar que tenemos todos los datos necesarios
+      if (!userInfo.cedula) {
+        throw new Error('No se pudo obtener la cédula del usuario. Por favor, vuelva a iniciar sesión.');
+      }
+
+      if (!formData.cuentaPago) {
+        throw new Error('No se ha seleccionado una cuenta para el pago.');
+      }
+
+      if (!costoCertificado || costoCertificado <= 0) {
+        throw new Error('El costo del certificado no es válido.');
+      }
+
       const dataParaServicio = {
-        prccode: '2401', // Proceso de generación de certificado
-        codcta: formData.cuentaPago, // Cuenta que se va a debitar
-        tpvisu: formData.tipoVisualizacion === 'cifras' ? '2' : '1'
+        prccode: '2401',           // Proceso de generación de certificado
+        idecl: userInfo.cedula,    // ✅ Cédula del usuario (se encriptará automáticamente)
+        codctad: formData.cuentaPago, // ✅ Cuenta que se va a debitar (se encriptará)
+        valtrns: costoCertificado.toFixed(2), // ✅ CORRECTO: valtrns (según backend del ingeniero)
+        ctrvalor: '1'              // ✅ CORRECTO: ctrvalor (según backend del ingeniero)
       };
+
+      console.log('📤 [CERT-FORM] Datos para proceso 2401 (antes de encriptar):', {
+        prccode: dataParaServicio.prccode,
+        idecl: dataParaServicio.idecl,
+        codctad: dataParaServicio.codctad,
+        valtrns: dataParaServicio.valtrns,
+        ctrvalor: dataParaServicio.ctrvalor
+      });
 
       const result = await apiServiceCertificados.makeRequest(dataParaServicio);
 
-      if (result.success) {
+      if (result.success && result.data.estado === '000') {
         console.log('✅ [CERT-FORM] Certificado generado exitosamente');
         console.log('📊 [CERT-FORM] Respuesta del servidor:', result.data);
+        console.log('📄 [CERT-FORM] Número de comprobante:', result.data.numcompr);
+        console.log('📅 [CERT-FORM] Fecha de transacción:', result.data.fectrans);
         
-        // ⚠️ IMPORTANTE: Mostrar información sobre el débito
+        // ⚠️ IMPORTANTE: Validar que el débito fue registrado
+        if (result.data.msg === 'TRANSACCION REGISTRADA') {
+          console.log('✅ [CERT-FORM] DÉBITO REGISTRADO EXITOSAMENTE');
+        } else {
+          console.warn('⚠️ [CERT-FORM] Respuesta inesperada:', result.data.msg);
+        }
+        
+        // 💰 Mostrar información detallada del débito
         console.log('💰 [CERT-FORM] INFORMACIÓN DEL DÉBITO:');
         console.log('   - Tipo certificado:', activeTab);
         console.log('   - Cuenta certificado:', formData.cuentaCertificado || 'TODAS (Consolidado)');
         console.log('   - Total cuentas incluidas:', cuentasParaCertificado.length);
         console.log('   - Cuenta debitada:', formData.cuentaPago);
         console.log('   - Monto debitado: $', costoCertificado?.toFixed(2));
-        console.log('   - Fecha:', new Date().toLocaleString('es-EC'));
+        console.log('   - Comprobante Nº:', result.data.numcompr);
+        console.log('   - Fecha transacción:', result.data.fectrans);
+        console.log('   - Cliente:', result.data.nomclien || userInfo.nombre);
+        console.log('   - Cédula:', result.data.ideclien || userInfo.cedula);
         
-        // Preparar datos completos para el PDF
+        // 🔓 Desencriptar la cédula antes de usarla en el certificado
+        let cedulaDesencriptada = userInfo.cedula;
+        try {
+          if (result.data.ideclien) {
+            // Si viene del backend, está encriptada
+            cedulaDesencriptada = decrypt(result.data.ideclien);
+            console.log('🔓 [CERT-FORM] Cédula desencriptada:', cedulaDesencriptada);
+          }
+        } catch (decryptError) {
+          console.warn('⚠️ [CERT-FORM] Error desencriptando cédula, usando cédula de sesión:', decryptError);
+          cedulaDesencriptada = userInfo.cedula;
+        }
+        
+        // Preparar datos completos para el PDF (incluyendo comprobante de débito)
         const certificateInfo = {
           ...result.data,
           tipoCertificado: activeTab, // 'consolidado' o 'cuentas'
           cliente: {
-            nombre: userInfo.nombre,
-            cedula: userInfo.cedula,
-            codigo: userInfo.cedula
+            nombre: result.data.nomclien || userInfo.nombre,
+            cedula: cedulaDesencriptada, // ✅ Usar cédula desencriptada
+            codigo: cedulaDesencriptada  // ✅ Usar cédula desencriptada
+          },
+          // Información del comprobante de débito
+          comprobante: result.data.comprobante || {
+            numcompr: result.data.numcompr || 'N/A',
+            fectrans: result.data.fectrans || new Date().toISOString().split('T')[0],
+            nomempre: result.data.nomempre || 'COOPERATIVA LAS NAVES LTDA'
           },
           // Para consolidado: array de todas las cuentas
           // Para individual: una sola cuenta
@@ -396,19 +460,29 @@ const CertificadosForm = () => {
         console.log('📊 [PDF] Generando certificado consolidado tipo Produbanco');
         
         const cuentasData = certificateData.todasLasCuentas.map(cuenta => {
-          const saldo = parseFloat(cuenta.saldo || cuenta.saldoDisponible || 0);
+          const saldo = parseFloat(cuenta.saldo || cuenta.saldoDisponible || cuenta.sldcta || 0);
           
-          // 🔒 SEGURIDAD: Para certificados consolidados, SIEMPRE censurar el monto
+          // � Desencriptar número de cuenta si viene encriptado
+          let numeroCuenta = cuenta.numeroCuenta || cuenta.numero || cuenta.codcta || 'N/A';
+          try {
+            if (numeroCuenta && typeof numeroCuenta === 'string' && numeroCuenta.includes('==')) {
+              numeroCuenta = decrypt(numeroCuenta);
+            }
+          } catch (err) {
+            console.warn('⚠️ [PDF] Error desencriptando número de cuenta:', err);
+          }
+          
+          // �🔒 SEGURIDAD: Para certificados consolidados, SIEMPRE censurar el monto
           // Solo mostrar el número de cifras (ejemplo: "TRES (3) CIFRAS ALTAS")
           const cifras = Math.floor(saldo).toString().length;
           const saldoTexto = `${convertirNumeroACifrasTexto(cifras).toUpperCase()} (${cifras}) CIFRAS ALTAS`;
           
           return [
-            cuenta.tipo || cuenta.descripcion || 'CUENTA DE AHORROS',
-            cuenta.numeroCuenta || cuenta.numero || 'N/A',
-            cuenta.estado || 'ACTIVA',
-            'DÓLARES USA',
-            cuenta.fechaApertura || '---',
+            cuenta.tipo || cuenta.descripcion || cuenta.tipcta || 'AHORROS A LA VISTA',
+            numeroCuenta,
+            cuenta.estado || cuenta.desect || 'ACTIVA',
+            cuenta.moneda || cuenta.nommnd || 'DÓLARES USA',
+            cuenta.fechaApertura || cuenta.fecape || '---',
             saldoTexto,
             'no registra'
           ];
@@ -460,12 +534,36 @@ const CertificadosForm = () => {
 
         yPos = doc.lastAutoTable.finalY + 10;
 
-        // Notas adicionales estilo Produbanco
+        // Notas adicionales: INVERSIONES (datos reales del backend)
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('Inversiones: No mantiene inversiones con la Cooperativa.', 15, yPos);
+        
+        const inversiones = certificateData.inversiones || [];
+        const creditos = certificateData.creditos || [];
+        
+        if (inversiones.length > 0) {
+          doc.text(`Inversiones: Mantiene ${inversiones.length} inversión(es) con la Cooperativa.`, 15, yPos);
+        } else {
+          doc.text('Inversiones: No mantiene inversiones con la Cooperativa.', 15, yPos);
+        }
         yPos += 6;
-        doc.text('Riesgos: No mantiene riesgos con la Cooperativa.', 15, yPos);
+        
+        if (creditos.length > 0) {
+          // Filtrar solo créditos activos o vigentes
+          const creditosActivos = creditos.filter(c => 
+            c.estado?.toLowerCase() === 'activo' || 
+            c.desect?.toLowerCase() === 'activo' ||
+            c.estado?.toLowerCase() === 'vigente'
+          );
+          
+          if (creditosActivos.length > 0) {
+            doc.text(`Riesgos: Mantiene ${creditosActivos.length} crédito(s) activo(s) con la Cooperativa.`, 15, yPos);
+          } else {
+            doc.text('Riesgos: No mantiene riesgos con la Cooperativa.', 15, yPos);
+          }
+        } else {
+          doc.text('Riesgos: No mantiene riesgos con la Cooperativa.', 15, yPos);
+        }
         yPos += 12;
         
       } else {
@@ -479,12 +577,57 @@ const CertificadosForm = () => {
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(...textColor);
           
-          // FECHA DE APERTURA
+          // 🆕 NÚMERO DE CUENTA (información específica de la cuenta)
           yPos += 5;
+          doc.setFont('helvetica', 'bold');
+          doc.text('NÚMERO DE CUENTA:', 25, yPos);
+          doc.setFont('helvetica', 'normal');
+          
+          // Desencriptar número de cuenta si viene encriptado
+          let numeroCuenta = cuentaCert.numeroCuenta || cuentaCert.codcta || 'N/A';
+          try {
+            if (numeroCuenta && numeroCuenta.includes('==')) {
+              // Está encriptado
+              numeroCuenta = decrypt(numeroCuenta);
+              console.log('🔓 [PDF] Número de cuenta desencriptado:', numeroCuenta);
+            }
+          } catch (decryptError) {
+            console.warn('⚠️ [PDF] Error desencriptando número de cuenta:', decryptError);
+          }
+          
+          doc.text(numeroCuenta, 90, yPos);
+          
+          yPos += 10;
+          
+          // TIPO DE CUENTA
+          doc.setFont('helvetica', 'bold');
+          doc.text('TIPO DE CUENTA:', 25, yPos);
+          doc.setFont('helvetica', 'normal');
+          doc.text(cuentaCert.tipoCuenta || cuentaCert.tipcta || 'AHORROS A LA VISTA', 90, yPos);
+          
+          yPos += 10;
+          
+          // ESTADO
+          doc.setFont('helvetica', 'bold');
+          doc.text('ESTADO:', 25, yPos);
+          doc.setFont('helvetica', 'normal');
+          doc.text(cuentaCert.estado || cuentaCert.desect || 'ACTIVA', 90, yPos);
+          
+          yPos += 10;
+          
+          // MONEDA
+          doc.setFont('helvetica', 'bold');
+          doc.text('MONEDA:', 25, yPos);
+          doc.setFont('helvetica', 'normal');
+          doc.text(cuentaCert.moneda || cuentaCert.nommnd || 'DÓLARES USA', 90, yPos);
+          
+          yPos += 10;
+          
+          // FECHA DE APERTURA
           doc.setFont('helvetica', 'bold');
           doc.text('FECHA DE APERTURA:', 25, yPos);
           doc.setFont('helvetica', 'normal');
-          doc.text(cuentaCert.fechaApertura || '---', 90, yPos);
+          doc.text(cuentaCert.fechaApertura || cuentaCert.fecape || '---', 90, yPos);
           
           yPos += 10;
           
@@ -958,7 +1101,7 @@ const CertificadosForm = () => {
                     : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
                 }`}
               >
-                💳 Cuentas o Tarjetas
+                💳 Cuentas Individuales
               </button>
             </div>
           </div>
