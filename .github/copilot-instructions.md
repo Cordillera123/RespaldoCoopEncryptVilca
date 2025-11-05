@@ -3,7 +3,9 @@
 ## Project Overview
 React-based banking web application for "Cooperativa Las Naves" (savings & credit cooperative) with comprehensive security features, encrypted communications, and differentiated user experiences for individuals vs. businesses.
 
-**Tech Stack:** React 19 + Vite 7 + Tailwind CSS + crypto-js for AES-256-CBC encryption
+**Tech Stack:** React 19 + Vite 7 + Tailwind CSS + crypto-js (AES-256-CBC encryption) + React Context API + Custom Hooks
+
+**Repository:** RespaldoCoopEncryptVilca (Branch: main, Owner: Cordillera123)
 
 ## Critical Architecture Patterns
 
@@ -164,18 +166,29 @@ const productsData = {
 
 ### Running the App
 ```powershell
-npm run dev          # Starts Vite dev server on port 3000
+npm run dev          # Starts Vite dev server on port 3000 (auto-loads encryption tests)
 npm run build        # Production build with Terser (strips console.*)
 npm run preview      # Preview production build
+npm run lint         # Run ESLint checks
+npm run format       # Format code with Prettier
 ```
 
-### Testing Encryption
-1. Start dev server: `npm run dev`
-2. Open browser to http://localhost:3000
-3. Click purple 🔐 floating button (bottom-right) for visual test page
-4. Or use browser console: `window.cryptoTests.quickTest("0200594729")`
+**Dev Mode Features:**
+- Auto-runs encryption tests in console (`src/utils/test-crypto.js` imports automatically via `main.jsx`)
+- Purple 🔐 floating button (bottom-right corner) opens visual test page (`CryptoTestPage.jsx`)
+- Browser console exposes `window.cryptoTests.quickTest("0200594729")` for manual testing
 
-**Test files:** `src/utils/test-crypto.js` (auto-runs in dev mode via `main.jsx`)
+### Testing Encryption
+**Automatic:** Encryption tests run on every `npm run dev` startup (check console).
+
+**Manual testing:**
+1. Click purple 🔐 floating button (bottom-right corner) → Opens `CryptoTestPage.jsx`
+2. Browser console: `window.cryptoTests.quickTest("0200594729")`
+3. Test specific process codes: `window.cryptoTests.testProcessCode("2351")`
+
+**Test files:** 
+- `src/utils/test-crypto.js` - Console-based roundtrip tests (auto-imported in `main.jsx`)
+- `src/components/CryptoTestPage.jsx` - Visual UI for testing encryption (accessible via 🔐 button)
 
 ### Debugging API Calls
 All requests logged with 🔐 prefix. Check console for:
@@ -186,7 +199,10 @@ All requests logged with 🔐 prefix. Check console for:
 **Enable debug mode:** Set `VITE_DEBUG_MODE=true` in `.env.local`
 
 ### Adding New APIs
-1. Add process code to `PROCESS_CODES` in `apiService.js`
+1. Add process code to `PROCESS_CODES` in `apiService.js`:
+   ```javascript
+   MY_NEW_API: '2XXX',  // Use descriptive constant name
+   ```
 2. Add field mapping to `FIELD_MAPPING_BY_PROCESS` in `crypto/fieldMapper.js`:
    ```javascript
    '2XXX': {
@@ -195,8 +211,19 @@ All requests logged with 🔐 prefix. Check console for:
      decryptFields: ['response_field1E', 'response_field2E']  // Backend adds 'E' suffix
    }
    ```
-3. Create method in `apiService.js` following existing patterns
+3. Create method in `apiService.js` following existing patterns:
+   ```javascript
+   async myNewApi(params) {
+     const data = {
+       prccode: PROCESS_CODES.MY_NEW_API,
+       ...params
+     };
+     return await this.makeRequest(data);
+   }
+   ```
 4. **CRITICAL:** ALL fields listed in backend's `fncrevisa_encrypt()` MUST be in `encryptFields` array
+
+**Verification:** Run `window.cryptoTests.testProcessCode("2XXX")` in console after adding
 
 **Backend encrypted fields (from PHP):**
 - Authentication: `usr`, `pwd`, `idecl`
@@ -248,9 +275,80 @@ Comprehensive documentation in root `.md` files:
 - `SISTEMA_INACTIVIDAD_IMPLEMENTADO.md` - Inactivity system reference
 - `SISTEMA_3_INTENTOS_*.md` - OTP retry logic for different contexts
 
+## Common Patterns & Gotchas
+
+### API Service Singleton Pattern
+All service classes are instantiated as singletons and exported:
+```javascript
+// In apiService.js
+class ApiService { /* ... */ }
+export default new ApiService();  // ← Export instance, not class
+```
+Import and use directly: `import apiService from '@services/apiService.js';`
+
+### SessionStorage Keys Convention
+Consistent naming for session data:
+- `userType` - 'persona_natural' or 'empresa'
+- `cedula` - User identification number
+- `userData` - Full user object from login
+- `authToken` - Session token (if applicable)
+
+### Component Communication Pattern
+Parent-child data flow for transfers/investments:
+1. Manager component (`TransferManager.jsx`) handles orchestration
+2. Window components (`InternaTransferWindow.jsx`) handle beneficiary selection
+3. Form components (`TransferCoopint.jsx`, `TransferExt.jsx`) execute operations
+4. Use props for downward data, callbacks for upward events
+
+### Error Response Pattern
+All API responses follow this structure:
+```javascript
+{
+  estcod: '000',  // '000' = success, other = error code
+  msjcod: 'Success message or error description',
+  data: { /* response payload */ }
+}
+```
+Map `estcod` to user-friendly messages via `ERROR_CODES_MAP` in `apiService.js`
+
+### Hook Composition for Complex Features
+For multi-step features (investments, transfers), create custom hooks that:
+1. Encapsulate all state and API calls
+2. Return object with state + methods (not arrays)
+3. Handle loading/error states internally
+4. Example: `useInvestment.js` returns 20+ values/methods
+
+### Conditional Encryption
+Not all fields need encryption - use process code mapping:
+- Catalog codes (`codifi`, `codtid`, `codtcur`) → **NEVER encrypt**
+- Identification numbers (`idecl`, `cedula`) → **ALWAYS encrypt**
+- Account numbers (`codcta`, `cuenta`) → Encrypt based on `prccode`
+- Check `FIELD_MAPPING_BY_PROCESS` before manually encrypting
+
 ## Security Reminders
 - NEVER commit `.env.local` (contains AES keys)
 - NEVER log decrypted sensitive data in production (Terser strips console.* in builds)
 - ALWAYS use `encryptRequest()` / `decryptResponse()` for sensitive fields
 - ALWAYS validate encryption config on init: `validateEncryptionConfig()` in crypto/constants.js
 - Session timeout enforced at 4 minutes - adjust `InactivityContext.jsx` if requirements change
+
+## Troubleshooting
+
+### "CUENTA NO EXISTE" Error in Transfers
+Check if you're sending the correct account identifier:
+- Internal CACVIL transfers may require `cedula` instead of `accountNumber`
+- External transfers require full account number
+- Review `_original` object in contact data for correct field names
+
+### Encryption Mismatch Errors
+If data appears corrupted or API returns "invalid format":
+1. Verify `VITE_AES_KEY` and `VITE_AES_IV` match backend exactly
+2. Check `FIELD_MAPPING_BY_PROCESS` includes all required fields
+3. Run `window.cryptoTests.testProcessCode("XXXX")` to verify roundtrip
+4. Ensure backend response fields have 'E' suffix for encrypted data
+
+### Component Not Re-rendering
+Common causes:
+1. Forgot to destructure from hook: `const { value } = useHook()` not `const hook = useHook()`
+2. SessionStorage updated but component doesn't listen for changes
+3. Need to trigger re-render with state setter or force update

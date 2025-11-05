@@ -2,17 +2,55 @@
 import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
 import { decrypt } from '../utils/crypto/encryptionService.js';
 
+// ============================================
+// CONFIGURACIÓN DE API CON RUTAS RELATIVAS
+// ============================================
 const API_CONFIG = {
-  // URL única para TODAS las operaciones (servidor de PRODUCCIÓN)
-  baseUrl: '/api-l/prctrans.php', // SIEMPRE usar ruta relativa - wsVirtualCoopSrvP
+  // ⭐ RUTAS RELATIVAS (Nginx hace el proxy)
+  baseUrl: '/api/prctrans.php',         // API principal
+  baseUrlWithL: '/api-l/prctrans.php',  // API con 'L' (ciertos procesos)
   
   token: '0999SolSTIC20220719',
-  timeout: 30000, // 30 segundos (aumentado para soportar encriptación y operaciones complejas)
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   }
 };
+
+/**
+ * Códigos de proceso que requieren la URL con 'L' (/api-l/)
+ * Todos los demás usan /api/
+ */
+const CODES_REQUIRING_L_URL = [
+  '2180', // Financial summary
+  '2148', // Validate username
+  '2151', // Validate password
+  '2371', // Investment types/terms
+  '2213', // Investment detail
+  '2374', // Accounts for investment
+  '2369', // Investment parameters
+  '2372', // Interest payment types
+  '2373', // Investment calculation
+  '2310', // Financial institutions
+  '2375'  // Register investment
+];
+
+/**
+ * Determinar qué URL usar según el código de proceso
+ * @param {string|number} processCode - Código del proceso
+ * @returns {string} URL a usar (/api/ o /api-l/)
+ */
+function getUrlForProcess(processCode) {
+  const codeStr = String(processCode);
+  const useApiL = CODES_REQUIRING_L_URL.includes(codeStr);
+  
+  if (import.meta.env.DEV) {
+    console.log(`🔗 [URL-SELECTOR] Proceso ${codeStr} → ${useApiL ? '/api-l/' : '/api/'}`);
+  }
+  
+  return useApiL ? API_CONFIG.baseUrlWithL : API_CONFIG.baseUrl;
+}
 
 /**
  * Códigos de proceso para diferentes operaciones
@@ -202,8 +240,8 @@ class ApiService {
    * Método genérico para realizar peticiones HTTP
    */
   async makeRequest(data, options = {}) {
-    // Usar SIEMPRE la URL con L (única URL disponible)
-    const targetUrl = this.config.baseUrl;
+    // ⭐ DETERMINAR URL SEGÚN EL CÓDIGO DE PROCESO
+    const targetUrl = getUrlForProcess(data.prccode);
 
     console.log('🔧 [API] Configurando petición...');
     console.log('🌐 [API] URL objetivo:', targetUrl);
