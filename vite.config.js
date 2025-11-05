@@ -1,68 +1,70 @@
-// vite.config.js - VERSIÓN ESTABLE SIN PROXY FACILITO + TERSER
+// vite.config.js - Configuración para servidor Debian 13 (192.168.0.59)
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig({
+  // Base: Raíz del sitio (sin subdirectorios)
+  base: '/',
+  
+  // Servidor de desarrollo LOCAL (npm run dev)
   server: {
     port: 3000,
     host: '0.0.0.0',
     cors: true,
+    
+    // Proxy para desarrollo: React local (3000) → Servidor Debian (192.168.0.59)
+    // En producción esto NO se usa, Nginx hace el proxy directamente
     proxy: {
-      // 🔸 PROXY ÚNICO: Todas las peticiones van al servidor de PRODUCCIÓN
-      '/api-l/prctrans.php': {
-        target: 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server',
+      '/api-l': {
+        target: 'http://192.168.0.59',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => {
-          const newPath = path.replace(/^\/api-l/, '');
-          console.log('🔄 [PROXY-API-L] Rewrite:', path, '→', newPath);
-          return newPath;
-        },
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('🔴 [PROXY ERROR]:', err);
-          });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('🚀 [PROXY REQ]:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('📡 [PROXY RES]:', proxyRes.statusCode, req.url);
-          });
-        }
+        rewrite: (path) => path  // Mantener /api-l/prctrans.php
+      },
+      '/api': {
+        target: 'http://192.168.0.59',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path  // Mantener /api/prctrans.php
       }
     }
   },
   
+  // Build de producción (npm run build)
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true,
+    sourcemap: false,  // No exponer código fuente
     minify: 'terser',
-    // ✅ NUEVA CONFIGURACIÓN DE TERSER
     terserOptions: {
       compress: {
-        drop_console: true,        // Elimina console.log, console.info, console.warn
-        drop_debugger: true,       // Elimina debugger statements
-        pure_funcs: ['console.log', 'console.info', 'console.debug'] // Específicamente estos
+        drop_console: true,   // Eliminar console.log en producción
+        drop_debugger: true,  // Eliminar debugger statements
       }
+    },
+    // Optimización de chunks para mejor performance
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          crypto: ['crypto-js'],  // Encriptación AES-256-CBC
+        },
+      },
+    },
+  },
+  
+  // Alias de rutas (para imports más limpios)
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@services': path.resolve(__dirname, './src/services'),
+      '@assets': path.resolve(__dirname, './src/assets'),
     }
   },
   
   plugins: [],
   
-  resolve: {
-    alias: {
-      '@': '/src',
-      '@services': '/services',
-      '@assets': '/src/assets'
-    }
-  },
-  
-  define: {
-    __API_URL__: JSON.stringify(process.env.API_URL || 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php'),
-    __API_TOKEN__: JSON.stringify(process.env.API_TOKEN || '0999SolSTIC20220719')
-  },
-  
   css: {
-    devSourcemap: true
+    devSourcemap: true  // Source maps solo en desarrollo
   }
 })
