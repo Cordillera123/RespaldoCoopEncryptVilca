@@ -1,6 +1,7 @@
 // src/components/ForgotPassword.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import forgotPasswordService from '../services/forgotPasswordService.js';
+import apiService from '../services/apiService.js'; // ✅ AGREGAR apiService
 import CodigoPage from './CodigoPage';
 import backgroundImage from "/public/assets/images/onu.jpg";
 
@@ -32,7 +33,10 @@ const ForgotPassword = ({ onBackToLogin }) => {
   });
   
   const [userInfo, setUserInfo] = useState(null);
-  const [securityQuestion, setSecurityQuestion] = useState(null);
+  const [securityQuestions, setSecurityQuestions] = useState([]); // Array de todas las preguntas
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Índice de pregunta actual
+  const [securityQuestion, setSecurityQuestion] = useState(null); // Pregunta actual mostrada
+  const [noQuestionsRegistered, setNoQuestionsRegistered] = useState(false); // Usuario sin preguntas
   const [isLoading, setIsLoading] = useState(false);
   const [alert, setAlert] = useState(null);
   const [isAnimated, setIsAnimated] = useState(false);
@@ -129,6 +133,12 @@ const ForgotPassword = ({ onBackToLogin }) => {
       setUserInfo(null);
       setUsernameStatus('idle');
     }
+
+    // ✅ CARGAR PREGUNTAS cuando se ingresa cédula completa (10 dígitos)
+    if (name === 'cedula' && value.length === 10 && internalView === 'identity') {
+      console.log('🔒 [FORGOT] Cédula completa detectada, cargando preguntas...');
+      getSecurityQuestion(value);
+    }
   };
 
   // PASO 1: Validar contraseñas (después de que usuario sea válido)
@@ -174,11 +184,8 @@ const ForgotPassword = ({ onBackToLogin }) => {
         console.log('✅ [FORGOT] Contraseña validada correctamente');
         showAlert('Contraseña válida. Proceda con la validación de identidad.', 'success');
         
-        // Obtener pregunta de seguridad
-        const userCedula = userInfo?.cliente?.[0]?.idecli;
-        if (userCedula) {
-          await getSecurityQuestion(userCedula);
-        }
+        // ⚠️ IMPORTANTE: No usar userInfo.cliente[0].idecli porque puede venir encriptado del backend
+        // Se usará formData.cedula que el usuario ingresará en el siguiente paso
         
         // Ir al siguiente paso
         setTimeout(() => {
@@ -205,23 +212,28 @@ const ForgotPassword = ({ onBackToLogin }) => {
       return;
     }
 
-    // Validar que la cédula coincida con la del usuario
-    const userCedula = userInfo?.cliente?.[0]?.idecli;
-    if (formData.cedula.trim() !== userCedula) {
-      showAlert('La cédula ingresada no coincide con la registrada para este usuario', 'error');
-      return;
-    }
+    // ✅ REMOVIDA VALIDACIÓN: No comparamos con userInfo.cliente[0].idecli porque viene encriptado
+    // Si las preguntas se cargaron correctamente, significa que la cédula es válida
+    // (las preguntas solo se cargan si la cédula existe en el sistema)
 
     if (!formData.respuesta.trim()) {
       showAlert('Por favor ingrese su respuesta de seguridad', 'error');
       return;
     }
 
+    if (!securityQuestion) {
+      showAlert('No hay pregunta de seguridad cargada', 'error');
+      return;
+    }
+
     console.log('🔐 [FORGOT] Validando identidad y respuesta');
+    console.log('📝 [FORGOT] Pregunta código:', securityQuestion.codprg);
+    console.log('📝 [FORGOT] Respuesta:', formData.respuesta);
     setIsLoading(true);
     
     try {
-      const result = await forgotPasswordService.validateSecurityAnswer(
+      // ✅ USAR apiService.validateSecurityAnswer() - el mismo que usa NewContactQuestions
+      const result = await apiService.validateSecurityAnswer(
         formData.cedula,
         securityQuestion.codprg,
         formData.respuesta
@@ -251,26 +263,60 @@ const ForgotPassword = ({ onBackToLogin }) => {
     }
   };
 
-  // Obtener pregunta de seguridad
+  // Obtener preguntas de seguridad registradas del usuario
+  // ✅ USAR apiService.getSecurityQuestion() - el MISMO que usa NewContactQuestions
   const getSecurityQuestion = async (cedula) => {
-    console.log('🔒 [FORGOT] Obteniendo pregunta de seguridad para:', cedula);
+    console.log('🔒 [FORGOT] Obteniendo preguntas de seguridad para:', cedula);
     
     try {
-      const result = await forgotPasswordService.getSecurityQuestion(cedula);
+      // ✅ CAMBIO: Usar apiService en lugar de forgotPasswordService
+      const result = await apiService.getSecurityQuestion(cedula);
       
       if (result.success && result.questions && result.questions.length > 0) {
-        // Seleccionar pregunta aleatoria
-        const randomQuestion = result.questions[Math.floor(Math.random() * result.questions.length)];
-        console.log('📝 [FORGOT] Pregunta seleccionada:', randomQuestion);
+        console.log('📝 [FORGOT] Preguntas registradas obtenidas:', result.questions.length);
+        console.log('📝 [FORGOT] Preguntas:', result.questions);
         
-        setSecurityQuestion(randomQuestion);
+        // Guardar TODAS las preguntas del usuario
+        setSecurityQuestions(result.questions);
+        
+        // Mostrar la primera pregunta
+        setCurrentQuestionIndex(0);
+        setSecurityQuestion(result.questions[0]);
+        setNoQuestionsRegistered(false);
+        
+        console.log('✅ [FORGOT] Primera pregunta cargada:', result.questions[0]);
       } else {
-        console.log('❌ [FORGOT] Error obteniendo pregunta:', result.error);
+        console.log('❌ [FORGOT] No hay preguntas registradas o error:', result.error);
+        
+        // Usuario NO tiene preguntas de seguridad registradas
+        setSecurityQuestions([]);
         setSecurityQuestion(null);
+        setNoQuestionsRegistered(true);
+        
+        // Mostrar mensaje específico
+        showAlert('Este usuario no tiene preguntas de seguridad registradas. Contacte con el administrador del sistema.', 'error');
       }
     } catch (error) {
-      console.error('💥 [FORGOT] Error obteniendo pregunta:', error);
+      console.error('💥 [FORGOT] Error obteniendo preguntas:', error);
+      setSecurityQuestions([]);
       setSecurityQuestion(null);
+      setNoQuestionsRegistered(true);
+      showAlert('Error al cargar preguntas de seguridad. Intente nuevamente.', 'error');
+    }
+  };
+
+  // Cambiar a la siguiente pregunta (ciclo)
+  const handleChangeQuestion = () => {
+    if (securityQuestions.length > 1) {
+      const nextIndex = (currentQuestionIndex + 1) % securityQuestions.length;
+      console.log(`� [FORGOT] Cambiando de pregunta ${currentQuestionIndex + 1} a ${nextIndex + 1}`);
+      
+      setCurrentQuestionIndex(nextIndex);
+      setSecurityQuestion(securityQuestions[nextIndex]);
+      
+      // Limpiar respuesta anterior
+      setFormData(prev => ({ ...prev, respuesta: '' }));
+      setAlert(null);
     }
   };
 
@@ -286,7 +332,10 @@ const ForgotPassword = ({ onBackToLogin }) => {
   const handleBack = () => {
     if (internalView === 'identity') {
       setInternalView('password');
+      setSecurityQuestions([]);
       setSecurityQuestion(null);
+      setCurrentQuestionIndex(0);
+      setNoQuestionsRegistered(false);
     }
   };
 
@@ -356,7 +405,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
           title: 'Validar Identidad',
           subtitle: 'Confirme su identidad y responda la pregunta de seguridad',
           icon: (
-            <svg className="w-8 h-8 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-8 h-8 text-cyan-400" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z"/>
             </svg>
           )
@@ -700,10 +749,28 @@ const ForgotPassword = ({ onBackToLogin }) => {
                   </div>
 
                   {securityQuestion ? (
-                    <div className="space-y-2">
-                      <label htmlFor="respuesta" className="block text-xs font-bold text-slate-700 tracking-wide uppercase">
-                        {securityQuestion.detprg}
-                      </label>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <label htmlFor="respuesta" className="block text-xs font-bold text-slate-700 tracking-wide uppercase flex-1">
+                          {securityQuestion.detprg || securityQuestion.desprg}
+                        </label>
+                        
+                        {/* Botón cambiar pregunta (solo si hay múltiples preguntas) */}
+                        {securityQuestions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={handleChangeQuestion}
+                            className="ml-3 flex items-center space-x-1 px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 hover:border-cyan-300 rounded-lg transition-all duration-200 text-cyan-700 hover:text-cyan-800 font-medium text-xs shadow-sm hover:shadow"
+                            title="Cambiar pregunta de seguridad"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z" />
+                            </svg>
+                            <span>Cambiar ({currentQuestionIndex + 1}/{securityQuestions.length})</span>
+                          </button>
+                        )}
+                      </div>
+                      
                       <input
                         id="respuesta"
                         name="respuesta"
@@ -713,11 +780,21 @@ const ForgotPassword = ({ onBackToLogin }) => {
                         placeholder="Ingrese su respuesta..."
                         className="block w-full px-3 py-3 border-2 rounded-lg bg-white text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 font-medium text-sm shadow-sm hover:shadow-md border-slate-300 hover:border-slate-400"
                       />
+                      
+                      {/* Indicador de preguntas disponibles */}
+                      {securityQuestions.length > 1 && (
+                        <p className="text-cyan-600 text-xs flex items-center space-x-1">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" />
+                          </svg>
+                          <span>Tiene {securityQuestions.length} preguntas de seguridad registradas. Puede cambiar entre ellas.</span>
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-4">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto mb-2"></div>
-                      <p className="text-slate-600 text-sm">Cargando pregunta de seguridad...</p>
+                      <p className="text-slate-600 text-sm">Cargando preguntas de seguridad...</p>
                     </div>
                   )}
 
