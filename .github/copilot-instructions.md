@@ -20,335 +20,39 @@ import { encryptRequest, decryptResponse } from '@/utils/crypto';
 
 // Before sending to backend
 const encryptedData = encryptRequest({
-  prccode: "2351",  // Process code determines which fields to encrypt
-  idecl: "0200594729",
-  codctad: "420101004676"
-});
+  ## Copilot instructions — FrontendCoop (concise)
 
-// After receiving from backend
-const decryptedResponse = decryptResponse(backendResponse, "2351");
-```
+  This repo is a Vite + React banking frontend that centralizes all backend calls through a single orchestrator and a process-code-based AES-256-CBC encryption layer.
 
-**Critical rules:**
-- Fields like `identificacion`, `idecl`, `clave`, `codigo`, `cuenta`, `valor`, `monto` are auto-encrypted based on `prccode`
-- 25+ process codes mapped in `fieldMapper.js` - check `FIELD_MAPPING_BY_PROCESS` before adding new APIs
-- Encryption credentials in `.env.local` MUST match backend PHP: `VITE_AES_KEY` (32 chars), `VITE_AES_IV` (16 chars)
-- Use `encryptRequest()` and `decryptResponse()` in `apiService.js`, never encrypt manually
+  Key responsibilities for an AI assistant:
+  - Use the crypto helpers in `src/utils/crypto/` (exported helpers: `encryptRequest`, `decryptResponse`, `FIELD_MAPPING_BY_PROCESS`).
+  - All sensitive fields are encrypted automatically by process code—never manually change encryption logic without updating `FIELD_MAPPING_BY_PROCESS`.
+  - Central API entry: `src/services/apiService.js`. Every new endpoint must add an entry to `PROCESS_CODES` and use the singleton `apiService.makeRequest` pattern.
 
-### 2. Unified API Service Pattern
-**Single backend endpoint for ALL operations:** `/api-l/prctrans.php` (proxied via Vite to `http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php`)
+  Essential files to check before edits:
+  - `src/utils/crypto/*` (constants, fieldMapper, encryptionService) — encryption mappings and env validation
+  - `src/services/apiService.js` — token, process codes, request/response wiring
+  - `src/context/InactivityContext.jsx` and `src/hooks/useInactivityTimer.js` / `useInactivityControl.js` — inactivity pause/resume pattern
+  - `src/hooks/useInvestment.js` and `src/hooks/useBeneficiaryAccounts.js` — examples of large hook patterns
 
-**IMPORTANT:** Production server changed from `.25/wsVirtualCoopSrvL` to `.102/wsVirtualCoopSrvP`
+  Dev & debug shortcuts:
+  - Start dev server: `npm run dev` (Vite auto-loads `src/utils/test-crypto.js` for encryption roundtrips).
+  - Crypto test UI: open the purple lock (CryptoTestPage) in the app or run `window.cryptoTests.quickTest('0200594729')` in browser console.
+  - Enable verbose logs with `.env.local`: set `VITE_DEBUG_MODE=true`. AES keys must match backend: `VITE_AES_KEY` (32 chars), `VITE_AES_IV` (16 chars).
 
-**Location:** `src/services/apiService.js` (5989 lines - central orchestrator)
+  How to add a new API (concrete):
+  1. Add code to `PROCESS_CODES` in `src/services/apiService.js`.
+  2. Add a mapping to `FIELD_MAPPING_BY_PROCESS` in `src/utils/crypto/fieldMapper.js` listing `encryptFields` and `decryptFields` (backend suffixes encrypted response fields with `E`).
+  3. Add a wrapper method in `apiService.js` that sets `prccode` and calls `makeRequest`.
+  4. Verify roundtrip with `window.cryptoTests.testProcessCode('<your_code>')`.
 
-**Pattern:**
-```javascript
-const data = {
-  tkn: '0999SolSTIC20220719',  // Fixed token for all requests
-  prccode: '2351',              // Determines operation type
-  // ... other params
-};
-const response = await apiService.makeRequest(data);
-```
+  Gotchas & conventions:
+  - Single backend endpoint: all operations use `prccode` to distinguish actions. Changing that flow is high-impact.
+  - Services are singletons: export instances (see `apiService.js`).
+  - Session data lives in `sessionStorage` (keys: `userType`, `cedula`, `userData`).
+  - OTP: 3-attempt rule implemented across security components (`SecurityCode*.jsx`) — preserve attempt-count logic.
 
-**Key constants:**
-- `PROCESS_CODES` object maps operations: login='2100', transfers='2355', investments='2375', etc.
-- Process codes auto-trigger encryption via `encryptRequest()` before sending
-- Response auto-decrypted via `decryptResponse()` with process code mapping
+  Safety/security:
+  - Do NOT commit `.env.local` or reveal AES keys. In production the build strips console logs.
 
-**Critical:** Always add new process codes to both `PROCESS_CODES` in `apiService.js` AND `FIELD_MAPPING_BY_PROCESS` in `crypto/fieldMapper.js`
-
-### 3. User Type Discrimination System
-**Business (RUC) vs. Individual (Cédula) users get different menus and features.**
-
-**Detection logic in `apiService.js`:**
-- Cédula: 10 digits → `userType: 'persona_natural'`
-- RUC: 13 digits ending in "001" → `userType: 'empresa'`
-- Stored in `sessionStorage` after login
-
-**Menu config:** `src/config/menuConfig.js` exports `PERSONA_NATURAL_MENU` and `EMPRESA_MENU`
-- Individual users: Basic banking (savings, credits, transfers)
-- Business users: Payroll, bulk transfers, user management, cash management, corporate reports
-
-**Location:** `Sidebar.jsx` loads menu based on `sessionStorage.getItem('userType')`
-
-### 4. Inactivity Detection & Auto-Logout
-**System automatically logs out users after 4 minutes of inactivity** with 2-minute warning.
-
-**Implementation:**
-- Context: `src/context/InactivityContext.jsx` (global state)
-- Hook: `src/hooks/useInactivityTimer.js` (timer logic)
-- Modal: `src/components/InactivityWarningModal.jsx` (visual countdown)
-
-**Configuration:**
-- Warning at 2 minutes (120s)
-- Auto-logout at 4 minutes (240s)
-- Excluded views: login, register, forgot-password (see `DEFAULT_CONFIG.excludeViews`)
-- Pausable during critical operations (transfers, investments)
-
-**Usage pattern:**
-```javascript
-// Pause timer during critical operation
-const { pauseTimer, resumeTimer } = useInactivityControl();
-pauseTimer();
-// ... perform transfer ...
-resumeTimer();
-```
-
-### 5. Three-Strike OTP System
-**All transfer types enforce 3-attempt limit for OTP codes** with automatic cancellation.
-
-**Affected components:**
-- `CodeSecurityInternalTransfer.jsx` (own accounts)
-- `SecurityCodeCoopint.jsx` (cooperative members)
-- `SecurityCodeExt.jsx` (external banks)
-
-**Pattern:**
-- Track `attemptCount` state (max 3)
-- On 3rd failure: show `CancelComponent` for 5 seconds, then reset
-- Clear error messages: "Código incorrecto. Te quedan X intentos"
-
-### 6. Transfer System Architecture
-**Centralized transfer manager** handles internal, cooperative, and external transfers with beneficiary account creation.
-
-**Key files:**
-- `TransferManager.jsx` - Main orchestrator
-- `AddAccountToBeneficiary.jsx` - New beneficiary account creation
-- `AccountCreatedSuccess.jsx` - Success screen with direct transfer option
-- `TransferCoopint.jsx` - Cooperative transfers
-- `TransferExt.jsx` - External bank transfers
-
-**Flow:** User selects beneficiary → Can add new account → Success screen → Option to transfer immediately
-
-**APIs:** 2310 (banks), 2320 (account types), 2365 (create beneficiary), 2355 (execute transfer)
-
-### 7. Investment System with Hook Pattern
-**Complex investment logic isolated in custom hook** for reusability.
-
-**Location:** `src/hooks/useInvestment.js` (1250 lines)
-
-**Pattern:**
-```javascript
-const {
-  investments, loading, error,
-  investmentTypes, plazos,
-  calculatorData, investmentParams,
-  // ... 20+ state values and methods
-} = useInvestment();
-```
-
-**APIs:** 2369 (params), 2371 (types/terms), 2372 (payment types), 2373 (calculation), 2374 (accounts), 2375 (register)
-
-**Related hooks:** `useBeneficiaryAccounts.js`, `useServiciosFacilito.js`, `useWindows.js` - follow same pattern for complex features
-
-### 8. Products System (Savings, Credits, Investments)
-**All financial products use process code 2201** with different `prdfi` filters:
-- Savings: `prdfi: "2"` → Process code 2201
-- Credits: `prdfi: "4"` → Process code 2201  
-- Investments: Process code 2213 for details
-
-**Related processes:**
-- 2212: Account statements/movements
-- 2220: Credit amortization table
-- 2213: Investment detail with movements
-
-**Pattern:**
-```javascript
-const productsData = {
-  prccode: '2201',
-  idecl: cedula,
-  prdfi: "2"  // 2=savings, 4=credits
-};
-```
-
-## Development Workflows
-
-### Running the App
-```powershell
-npm run dev          # Starts Vite dev server on port 3000 (auto-loads encryption tests)
-npm run build        # Production build with Terser (strips console.*)
-npm run preview      # Preview production build
-npm run lint         # Run ESLint checks
-npm run format       # Format code with Prettier
-```
-
-**Dev Mode Features:**
-- Auto-runs encryption tests in console (`src/utils/test-crypto.js` imports automatically via `main.jsx`)
-- Purple 🔐 floating button (bottom-right corner) opens visual test page (`CryptoTestPage.jsx`)
-- Browser console exposes `window.cryptoTests.quickTest("0200594729")` for manual testing
-
-### Testing Encryption
-**Automatic:** Encryption tests run on every `npm run dev` startup (check console).
-
-**Manual testing:**
-1. Click purple 🔐 floating button (bottom-right corner) → Opens `CryptoTestPage.jsx`
-2. Browser console: `window.cryptoTests.quickTest("0200594729")`
-3. Test specific process codes: `window.cryptoTests.testProcessCode("2351")`
-
-**Test files:** 
-- `src/utils/test-crypto.js` - Console-based roundtrip tests (auto-imported in `main.jsx`)
-- `src/components/CryptoTestPage.jsx` - Visual UI for testing encryption (accessible via 🔐 button)
-
-### Debugging API Calls
-All requests logged with 🔐 prefix. Check console for:
-- `[ENCRYPT_REQUEST]` - Shows which fields are encrypted
-- `[DECRYPT_RESPONSE]` - Shows decrypted data
-- `[API]` - Generic API request/response logs
-
-**Enable debug mode:** Set `VITE_DEBUG_MODE=true` in `.env.local`
-
-### Adding New APIs
-1. Add process code to `PROCESS_CODES` in `apiService.js`:
-   ```javascript
-   MY_NEW_API: '2XXX',  // Use descriptive constant name
-   ```
-2. Add field mapping to `FIELD_MAPPING_BY_PROCESS` in `crypto/fieldMapper.js`:
-   ```javascript
-   '2XXX': {
-     description: 'Your API description',
-     encryptFields: ['idecl', 'usr', 'pwd', 'codseg', ...], // Fields to encrypt in request
-     decryptFields: ['response_field1E', 'response_field2E']  // Backend adds 'E' suffix
-   }
-   ```
-3. Create method in `apiService.js` following existing patterns:
-   ```javascript
-   async myNewApi(params) {
-     const data = {
-       prccode: PROCESS_CODES.MY_NEW_API,
-       ...params
-     };
-     return await this.makeRequest(data);
-   }
-   ```
-4. **CRITICAL:** ALL fields listed in backend's `fncrevisa_encrypt()` MUST be in `encryptFields` array
-
-**Verification:** Run `window.cryptoTests.testProcessCode("2XXX")` in console after adding
-
-**Backend encrypted fields (from PHP):**
-- Authentication: `usr`, `pwd`, `idecl`
-- Contact: `tlfcel`, `direma`, `adiema`
-- Financial: `codcta`, `codctad`, `codctao`, `codctab`, `valtrnf`, `valinver`, `valor`, `monto`
-- Security: `codseg`, `codigo`, `idemsg`, `detrsp`, `respuesta`
-- Credentials: `clave`, `claveActual`, `claveNueva`, `password`
-
-## Project Conventions
-
-### File Organization
-- **Services:** `src/services/` - API communication only
-- **Hooks:** `src/hooks/` - Reusable stateful logic (investments, transfers, etc.)
-- **Context:** `src/context/` - Global state (inactivity, user session)
-- **Components/dashboard:** Main dashboard components (forms, transfers, products)
-- **Components/dashboard/empresa:** Business-only components (payroll, bulk transfers)
-- **Components/dashboard/investment:** Investment-specific components
-- **Utils/crypto:** Encryption system (never modify without understanding backend implications)
-
-### Import Aliases
-```javascript
-import x from '@/components/...'     // → src/
-import x from '@services/...'        // → services/
-import x from '@assets/...'          // → src/assets/
-```
-
-### Component Naming
-- Dashboard components: `XxxxxForm.jsx` (e.g., `SavingsProductForm.jsx`)
-- Transfer windows: `XxxxxWindow.jsx` (e.g., `InternaTransferWindow.jsx`)
-- Security components: `SecurityCodeXxxx.jsx` or `CodeSecurityXxxx.jsx`
-
-### State Management
-- **Global:** Context API (InactivityContext) for cross-cutting concerns
-- **Complex features:** Custom hooks (useInvestment, useBeneficiaryAccounts)
-- **Component-local:** useState for form state and UI toggles
-- **Session data:** sessionStorage for user type, auth tokens, user data
-
-### Error Handling
-- API responses include `estcod` (status code) and `msjcod` (message)
-- Mapping in `ERROR_CODES_MAP` (apiService.js): '000' = success, '001' = invalid credentials, etc.
-- Display user-friendly messages from `ERROR_CODES_MAP.message`
-
-## Documentation Reference
-Comprehensive documentation in root `.md` files:
-- `ENCRYPTION_IMPLEMENTATION_SPRINT1.md` - Encryption system deep-dive
-- `BACKEND_ENCRYPTION_GUIDE.md` - PHP backend compatibility requirements
-- `TRANSFER_SYSTEM_DOCUMENTATION.md` - Transfer flows and APIs
-- `IMPLEMENTACION_COMPLETADA.md` - User type discrimination details
-- `SISTEMA_INACTIVIDAD_IMPLEMENTADO.md` - Inactivity system reference
-- `SISTEMA_3_INTENTOS_*.md` - OTP retry logic for different contexts
-
-## Common Patterns & Gotchas
-
-### API Service Singleton Pattern
-All service classes are instantiated as singletons and exported:
-```javascript
-// In apiService.js
-class ApiService { /* ... */ }
-export default new ApiService();  // ← Export instance, not class
-```
-Import and use directly: `import apiService from '@services/apiService.js';`
-
-### SessionStorage Keys Convention
-Consistent naming for session data:
-- `userType` - 'persona_natural' or 'empresa'
-- `cedula` - User identification number
-- `userData` - Full user object from login
-- `authToken` - Session token (if applicable)
-
-### Component Communication Pattern
-Parent-child data flow for transfers/investments:
-1. Manager component (`TransferManager.jsx`) handles orchestration
-2. Window components (`InternaTransferWindow.jsx`) handle beneficiary selection
-3. Form components (`TransferCoopint.jsx`, `TransferExt.jsx`) execute operations
-4. Use props for downward data, callbacks for upward events
-
-### Error Response Pattern
-All API responses follow this structure:
-```javascript
-{
-  estcod: '000',  // '000' = success, other = error code
-  msjcod: 'Success message or error description',
-  data: { /* response payload */ }
-}
-```
-Map `estcod` to user-friendly messages via `ERROR_CODES_MAP` in `apiService.js`
-
-### Hook Composition for Complex Features
-For multi-step features (investments, transfers), create custom hooks that:
-1. Encapsulate all state and API calls
-2. Return object with state + methods (not arrays)
-3. Handle loading/error states internally
-4. Example: `useInvestment.js` returns 20+ values/methods
-
-### Conditional Encryption
-Not all fields need encryption - use process code mapping:
-- Catalog codes (`codifi`, `codtid`, `codtcur`) → **NEVER encrypt**
-- Identification numbers (`idecl`, `cedula`) → **ALWAYS encrypt**
-- Account numbers (`codcta`, `cuenta`) → Encrypt based on `prccode`
-- Check `FIELD_MAPPING_BY_PROCESS` before manually encrypting
-
-## Security Reminders
-- NEVER commit `.env.local` (contains AES keys)
-- NEVER log decrypted sensitive data in production (Terser strips console.* in builds)
-- ALWAYS use `encryptRequest()` / `decryptResponse()` for sensitive fields
-- ALWAYS validate encryption config on init: `validateEncryptionConfig()` in crypto/constants.js
-- Session timeout enforced at 4 minutes - adjust `InactivityContext.jsx` if requirements change
-
-## Troubleshooting
-
-### "CUENTA NO EXISTE" Error in Transfers
-Check if you're sending the correct account identifier:
-- Internal CACVIL transfers may require `cedula` instead of `accountNumber`
-- External transfers require full account number
-- Review `_original` object in contact data for correct field names
-
-### Encryption Mismatch Errors
-If data appears corrupted or API returns "invalid format":
-1. Verify `VITE_AES_KEY` and `VITE_AES_IV` match backend exactly
-2. Check `FIELD_MAPPING_BY_PROCESS` includes all required fields
-3. Run `window.cryptoTests.testProcessCode("XXXX")` to verify roundtrip
-4. Ensure backend response fields have 'E' suffix for encrypted data
-
-### Component Not Re-rendering
-Common causes:
-1. Forgot to destructure from hook: `const { value } = useHook()` not `const hook = useHook()`
-2. SessionStorage updated but component doesn't listen for changes
-3. Need to trigger re-render with state setter or force update
+  If anything above is unclear or you want small additions (e.g., quick code examples for adding a specific process code), tell me which area to expand and I'll iterate.

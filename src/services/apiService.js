@@ -586,7 +586,10 @@ class ApiService {
   async getAccountStatement(cedula, codigoCuenta, fechaDesde, fechaHasta) {
     console.log('📊 [STATEMENT] Obteniendo estado de cuenta');
     console.log('👤 [STATEMENT] Cédula:', cedula);
-    console.log('🏦 [STATEMENT] Cuenta:', codigoCuenta);
+    console.log('🏦 [STATEMENT] Cuenta (RAW):', codigoCuenta);
+    console.log('🏦 [STATEMENT] Cuenta length:', codigoCuenta?.length);
+    console.log('🏦 [STATEMENT] Cuenta type:', typeof codigoCuenta);
+    console.log('🏦 [STATEMENT] Cuenta parece encriptada?', codigoCuenta?.length > 20); // Base64 encriptado es largo
     console.log('📅 [STATEMENT] Desde:', fechaDesde, 'Hasta:', fechaHasta);
 
     // Validaciones básicas
@@ -6299,6 +6302,14 @@ formatAccountNumberForDisplay(accountNumber) {
     // Extraer cédula de los datos del usuario
     const userData = loginResult.data;
     let cedula = null;
+
+    console.log('🔍 [2FA-LOGIN] userData completo:', userData);
+    console.log('🔍 [2FA-LOGIN] userData.cliente:', userData.cliente);
+    if (userData.cliente && userData.cliente[0]) {
+      console.log('🔍 [2FA-LOGIN] userData.cliente[0]:', userData.cliente[0]);
+      console.log('🔍 [2FA-LOGIN] idecli (desencriptado):', userData.cliente[0].idecli);
+      console.log('🔍 [2FA-LOGIN] idecliE (encriptado):', userData.cliente[0].idecliE);
+    }
 
     // Buscar cédula en diferentes posibles ubicaciones de la respuesta
     if (userData.cliente && userData.cliente[0] && userData.cliente[0].idecli) {

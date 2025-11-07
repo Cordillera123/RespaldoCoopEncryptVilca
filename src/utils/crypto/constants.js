@@ -37,64 +37,180 @@ export const DEBUG_MODE = import.meta.env.DEV;
 
 /**
  * Campos que SIEMPRE deben encriptarse sin importar el proceso
- * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS
+ * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS DEL BACKEND
+ * ⚠️ ACTUALIZADO 2025-11-07: Incluye TODOS los campos del array PHP $strArray
  */
 export const ALWAYS_ENCRYPT_FIELDS = [
-  // ===== CAMPOS ORIGINALES DEL BACKEND PHP =====
-  'tlfcel', 'tlfcelul', 'usr', 'pwd',
-  'idecl', 'adiema', 'direma', 'detrsp',
-  'codcta', 'codinv', 'codcrd', 'codctad',
-  'valtrnf', 'codctac', 'ideclr', 'bnfcel',
-  'bnfema', 'valinver', 'codctadp', 'valtrns',
+  // ===== CAMPOS DE IDENTIFICACIÓN =====
+  'idecl',           // Identificación cliente (cédula principal)
+  'idecli',          // Identificación cliente (variante)
+  'ideclien',        // Identificación cliente (variante larga)
+  'ideclr',          // Identificación receptor/beneficiario
+  'identificacion',  // Identificación genérica
   
-  // ===== NUEVOS CAMPOS (Frontend React) - EXACTOS DEL PHP =====
-  'codigo', 'codseg', 'respuesta',          // Códigos y seguridad ⚠️ CRÍTICO PARA OTP
-  'valor', 'monto', 'montoinv',              // Valores financieros
-  'cuenta', 'codctao', 'codctab',            // Cuentas
-  'clave', 'password', 'claveActual',        // Contraseñas
-  'claveNueva', 'identificacion',            // Identificación
-  'telefono', 'celular', 'email', 'correo',  // Contactos
-  'vlr', 'vlrtrn', 'descripcion',            // Transacciones
-  'referencia', 'idemsg',                    // Referencias ⚠️ CRÍTICO PARA OTP
+  // ===== CAMPOS DE USUARIO Y AUTENTICACIÓN =====
+  'usr',             // Usuario
+  'pwd',             // Password
+  'password',        // Password (alias)
+  'clave',           // Clave
+  'claveActual',     // Clave actual (cambio de contraseña)
+  'claveNueva',      // Clave nueva (cambio de contraseña)
   
-  // ===== ALIASES PARA COMPATIBILIDAD =====
-  'usuario', 'codigoSeguridad', 'codigoOTP', 'pin', 'claveConfirmacion', 'nombreUsuario'
+  // ===== CAMPOS DE SEGURIDAD Y OTP =====
+  'codigo',          // Código genérico ⚠️ CRÍTICO PARA OTP
+  'codseg',          // Código de seguridad ⚠️ CRÍTICO PARA OTP
+  'idemsg',          // ID del mensaje OTP ⚠️ CRÍTICO PARA OTP
+  'respuesta',       // Respuesta a pregunta de seguridad
+  'detrsp',          // Detalle respuesta
+  'referencia',      // Referencia de transacción
+  
+  // ===== CAMPOS DE CUENTAS =====
+  'codcta',          // Código cuenta general
+  'codctac',         // Código cuenta cooperativa/beneficiario
+  'codctad',         // Código cuenta destino
+  'codctadp',        // Código cuenta depósito
+  'codctao',         // Código cuenta origen
+  'codctab',         // Código cuenta beneficiario
+  'cuenta',          // Cuenta genérica
+  'codinv',          // Código inversión
+  'codcrd',          // Código crédito
+  
+  // ===== CAMPOS DE VALORES Y MONTOS =====
+  'valtrnf',         // Valor transferencia
+  'valinver',        // Valor inversión
+  'valtrns',         // Valor transacción
+  'valcms',          // Valor comisión
+  'valor',           // Valor genérico
+  'vlr',             // Valor (abreviado)
+  'vlrtrn',          // Valor transacción (abreviado)
+  'monto',           // Monto genérico
+  'montoinv',        // Monto inversión
+  'mntcap',          // Monto capital
+  
+  // ===== CAMPOS DE SALDOS =====
+  'sldcta',          // Saldo cuenta
+  'salcnt',          // Saldo contable
+  'saldis',          // Saldo disponible
+  'salcap',          // Saldo capital
+  
+  // ===== CAMPOS DE CONTACTO =====
+  'tlfcel',          // Teléfono celular
+  'tlfcelul',        // Teléfono celular (variante)
+  'tlfdom',          // Teléfono domicilio
+  'tlftra',          // Teléfono trabajo
+  'telefono',        // Teléfono genérico
+  'celular',         // Celular
+  'bnfcel',          // Celular beneficiario
+  'direma',          // Dirección email
+  'adiema',          // Dirección email adicional
+  'email',           // Email
+  'correo',          // Correo
+  'bnfema',          // Email beneficiario
+  
+  // ===== CAMPOS DESCRIPTIVOS =====
+  'descripcion',     // Descripción de transacción
+  
+  // ===== ALIASES PARA COMPATIBILIDAD FRONTEND =====
+  'usuario',         // Alias de usr
+  'codigoSeguridad', // Alias de codseg
+  'codigoOTP',       // Alias de codigo
+  'pin',             // PIN
+  'claveConfirmacion', // Confirmación de clave
+  'nombreUsuario'    // Nombre de usuario
 ];
 
 /**
  * Campos financieros sensibles
- * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS
+ * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS DEL BACKEND
+ * ⚠️ ACTUALIZADO 2025-11-07: Incluye TODOS los campos financieros del backend
  */
 export const FINANCIAL_FIELDS = [
-  // ===== CAMPOS FINANCIEROS ORIGINALES DEL PHP =====
-  'codcta', 'codinv', 'codcrd', 'codctad',
-  'valtrnf', 'codctac', 'valinver', 'codctadp', 'valtrns',
+  // ===== CAMPOS DE CUENTAS =====
+  'codcta',          // Código cuenta general
+  'codctac',         // Código cuenta cooperativa/beneficiario
+  'codctad',         // Código cuenta destino
+  'codctadp',        // Código cuenta depósito
+  'codctao',         // Código cuenta origen
+  'codctab',         // Código cuenta beneficiario
+  'cuenta',          // Cuenta genérica
+  'codinv',          // Código inversión
+  'codcrd',          // Código crédito
   
-  // ===== NUEVOS CAMPOS FINANCIEROS DEL PHP =====
-  'valor', 'monto', 'montoinv',
-  'cuenta', 'codctao', 'codctab',
-  'vlr', 'vlrtrn', 'descripcion', 'referencia',
+  // ===== CAMPOS DE VALORES Y MONTOS =====
+  'valtrnf',         // Valor transferencia
+  'valinver',        // Valor inversión
+  'valtrns',         // Valor transacción
+  'valcms',          // Valor comisión
+  'valor',           // Valor genérico
+  'vlr',             // Valor (abreviado)
+  'vlrtrn',          // Valor transacción (abreviado)
+  'monto',           // Monto genérico
+  'montoinv',        // Monto inversión
+  'mntcap',          // Monto capital
   
-  // ===== ALIASES PARA COMPATIBILIDAD =====
-  'cuentaOrigen', 'cuentaDestino', 'cuentaBeneficiario', 'numeroCuenta',
-  'saldo', 'salcnt', 'saldis', 'valorTransferencia'
+  // ===== CAMPOS DE SALDOS =====
+  'sldcta',          // Saldo cuenta
+  'salcnt',          // Saldo contable
+  'saldis',          // Saldo disponible
+  'salcap',          // Saldo capital
+  
+  // ===== CAMPOS DESCRIPTIVOS =====
+  'descripcion',     // Descripción de transacción
+  'referencia',      // Referencia de transacción
+  
+  // ===== ALIASES PARA COMPATIBILIDAD FRONTEND =====
+  'cuentaOrigen',
+  'cuentaDestino',
+  'cuentaBeneficiario',
+  'numeroCuenta',
+  'saldo',
+  'valorTransferencia'
 ];
 
 /**
  * Campos de datos personales
- * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS
+ * BASADO EN EL PHP: fncrevisa_encrypt() - CAMPOS EXACTOS DEL BACKEND
+ * ⚠️ ACTUALIZADO 2025-11-07: Incluye TODOS los campos personales del backend
  */
 export const PERSONAL_DATA_FIELDS = [
-  // ===== CAMPOS PERSONALES ORIGINALES DEL PHP =====
-  'tlfcel', 'tlfcelul', 'adiema', 'direma', 'detrsp',
-  'ideclr', 'bnfcel', 'bnfema',
+  // ===== CAMPOS DE IDENTIFICACIÓN =====
+  'idecl',           // Identificación cliente (cédula principal)
+  'idecli',          // Identificación cliente (variante)
+  'ideclien',        // Identificación cliente (variante larga)
+  'ideclr',          // Identificación receptor/beneficiario
+  'identificacion',  // Identificación genérica
   
-  // ===== NUEVOS CAMPOS PERSONALES DEL PHP =====
-  'identificacion', 'telefono', 'celular', 'email', 'correo',
+  // ===== CAMPOS DE CONTACTO TELEFÓNICO =====
+  'tlfcel',          // Teléfono celular
+  'tlfcelul',        // Teléfono celular (variante)
+  'tlfdom',          // Teléfono domicilio
+  'tlftra',          // Teléfono trabajo
+  'telefono',        // Teléfono genérico
+  'celular',         // Celular
+  'bnfcel',          // Celular beneficiario
   
-  // ===== ALIASES PARA COMPATIBILIDAD =====
-  'direccion', 'cedula', 'ruc', 'nombres', 'apellidos', 'nombre',
-  'apellido', 'fechaNacimiento', 'identificacionBeneficiario', 'nombreBeneficiario'
+  // ===== CAMPOS DE CONTACTO EMAIL =====
+  'direma',          // Dirección email
+  'adiema',          // Dirección email adicional
+  'email',           // Email
+  'correo',          // Correo
+  'bnfema',          // Email beneficiario
+  
+  // ===== CAMPOS DE SEGURIDAD =====
+  'detrsp',          // Detalle respuesta seguridad
+  'respuesta',       // Respuesta a pregunta de seguridad
+  
+  // ===== ALIASES PARA COMPATIBILIDAD FRONTEND =====
+  'direccion',
+  'cedula',
+  'ruc',
+  'nombres',
+  'apellidos',
+  'nombre',
+  'apellido',
+  'fechaNacimiento',
+  'identificacionBeneficiario',
+  'nombreBeneficiario'
 ];
 
 // ============================================================================
@@ -103,28 +219,132 @@ export const PERSONAL_DATA_FIELDS = [
 
 /**
  * Campos que el backend devuelve encriptados y deben desencriptarse
- * Basado en el ejemplo: { "codctaE": "RWV3SHUwRVV6OVhDa2Q1bEhkbzFNZz09Ojon3ifU70wTe7RdbwF7Pp++" }
+ * El backend agrega sufijo 'E' a los campos encriptados en la respuesta
+ * ⚠️ ACTUALIZADO 2025-11-07: Incluye TODOS los campos con sufijo E del backend
  */
 export const ENCRYPTED_RESPONSE_FIELDS = [
-  'codctaE',         // Código de cuenta encriptado
+  // ===== CAMPOS DE IDENTIFICACIÓN ENCRIPTADOS =====
   'ideclE',          // Identificación encriptada
+  'idecliE',         // Identificación cliente encriptada
+  'ideclrE',         // Identificación receptor encriptada
+  
+  // ===== CAMPOS DE CUENTAS ENCRIPTADOS =====
+  'codctaE',         // Código cuenta encriptado
+  'codctacE',        // Código cuenta cooperativa encriptado
+  'codctadE',        // Código cuenta destino encriptado
+  'codctadpE',       // Código cuenta depósito encriptado
+  'codctaoE',        // Código cuenta origen encriptado
+  'codctabE',        // Código cuenta beneficiario encriptado
+  'cuentaE',         // Cuenta genérica encriptada
+  'codinvE',         // Código inversión encriptado
+  'codcrdE',         // Código crédito encriptado
+  
+  // ===== CAMPOS DE VALORES Y MONTOS ENCRIPTADOS =====
   'valorE',          // Valor encriptado
+  'vlrE',            // Valor abreviado encriptado
+  'vlrtrnE',         // Valor transacción encriptado
   'montoE',          // Monto encriptado
+  'montoinvE',       // Monto inversión encriptado
+  'mntcapE',         // Monto capital encriptado
+  'valtrnfE',        // Valor transferencia encriptado
+  'valinverE',       // Valor inversión encriptado
+  'valtrnE',         // Valor transacción encriptado (abreviado)
+  'valcmsE',         // Valor comisión encriptado
+  
+  // ===== CAMPOS DE SALDOS ENCRIPTADOS =====
   'saldoE',          // Saldo encriptado
+  'sldctaE',         // Saldo cuenta encriptado
+  'salcntE',         // Saldo contable encriptado
+  'saldisE',         // Saldo disponible encriptado
+  'salcapE',         // Saldo capital encriptado
+  
+  // ===== CAMPOS DE CONTACTO ENCRIPTADOS =====
+  'tlfcelE',         // Teléfono celular encriptado
+  'tlfcelulE',       // Teléfono celular variante encriptado
+  'tlfdomE',         // Teléfono domicilio encriptado
+  'tlftraE',         // Teléfono trabajo encriptado
+  'bnfcelE',         // Celular beneficiario encriptado
+  'diremaE',         // Dirección email encriptada
+  'adiemaE',         // Email adicional encriptado
+  'bnfemaE',         // Email beneficiario encriptado
+  
+  // ===== CAMPOS DE SEGURIDAD ENCRIPTADOS =====
+  'idemsgE',         // ID mensaje OTP encriptado
+  'codsegE',         // Código seguridad encriptado
+  'detrspE',         // Detalle respuesta encriptado
+  'respuestaE',      // Respuesta encriptada
+  
+  // ===== CAMPOS DESCRIPTIVOS ENCRIPTADOS =====
+  'descripcionE',    // Descripción encriptada
+  'referenciaE',     // Referencia encriptada
+  
+  // ===== CAMPOS GENÉRICOS =====
   'dataEncrypted',   // Campo genérico de datos encriptados
-  'encrypted'        // Otro campo genérico
+  'encrypted',       // Otro campo genérico
+  'interesE'         // Interés encriptado (inversiones)
 ];
 
 /**
  * Mapeo de campos encriptados a sus equivalentes desencriptados
  * Ejemplo: codctaE (encriptado) → codcta (desencriptado)
+ * ⚠️ ACTUALIZADO 2025-11-07: Incluye TODOS los mapeos del backend
  */
 export const FIELD_MAPPING = {
-  'codctaE': 'codcta',
+  // ===== IDENTIFICACIÓN =====
   'ideclE': 'idecl',
+  'idecliE': 'idecli',
+  'ideclrE': 'ideclr',
+  
+  // ===== CUENTAS =====
+  'codctaE': 'codcta',
+  'codctacE': 'codctac',
+  'codctadE': 'codctad',
+  'codctadpE': 'codctadp',
+  'codctaoE': 'codctao',
+  'codctabE': 'codctab',
+  'cuentaE': 'cuenta',
+  'codinvE': 'codinv',
+  'codcrdE': 'codcrd',
+  
+  // ===== VALORES Y MONTOS =====
   'valorE': 'valor',
+  'vlrE': 'vlr',
+  'vlrtrnE': 'vlrtrn',
   'montoE': 'monto',
-  'saldoE': 'saldo'
+  'montoinvE': 'montoinv',
+  'mntcapE': 'mntcap',
+  'valtrnfE': 'valtrnf',
+  'valinverE': 'valinver',
+  'valtrnE': 'valtrn',
+  'valcmsE': 'valcms',
+  
+  // ===== SALDOS =====
+  'saldoE': 'saldo',
+  'sldctaE': 'sldcta',
+  'salcntE': 'salcnt',
+  'saldisE': 'saldis',
+  'salcapE': 'salcap',
+  
+  // ===== CONTACTO =====
+  'tlfcelE': 'tlfcel',
+  'tlfcelulE': 'tlfcelul',
+  'tlfdomE': 'tlfdom',
+  'tlftraE': 'tlftra',
+  'bnfcelE': 'bnfcel',
+  'diremaE': 'direma',
+  'adiemaE': 'adiema',
+  'bnfemaE': 'bnfema',
+  
+  // ===== SEGURIDAD =====
+  'idemsgE': 'idemsg',
+  'codsegE': 'codseg',
+  'detrspE': 'detrsp',
+  'respuestaE': 'respuesta',
+  
+  // ===== DESCRIPTIVOS =====
+  'descripcionE': 'descripcion',
+  'referenciaE': 'referencia',
+  'interesE': 'interes'
 };
 
 // ============================================================================

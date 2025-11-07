@@ -3,7 +3,22 @@
  * Este módulo define qué campos encriptar para cada API del backend
  * 
  * ⚠️ IMPORTANTE: NO encriptar códigos de catálogo (codifi, codtidr, codtcur)
- * Última actualización: 2025-10-29 - Fix proceso 2365
+ * ⚠️ CRÍTICO: Solo encriptar los campos que el backend ESPERA encriptados
+ * 
+ * ESTRATEGIA DE ACTUALIZACIÓN (2025-11-07):
+ * - Los campos en constants.js incluyen TODOS los campos posibles del backend
+ * - En fieldMapper.js solo agregamos campos cuando confirmamos que el backend los necesita
+ * - NO encriptar campos extras "por si acaso" - esto causa errores "NO EXISTE"
+ * 
+ * PROCESOS VALIDADOS (funcionando):
+ * - 2100 (Login): usr, pwd
+ * - 2155 (OTP Request): idecl SOLAMENTE
+ * - 2156 (OTP Validate): idecl, codseg
+ * 
+ * Para agregar más campos:
+ * 1. Verificar que el backend los espera encriptados
+ * 2. Probar en ambiente de desarrollo
+ * 3. Validar que no cause errores "NO EXISTE"
  */
 
 import {
@@ -28,14 +43,14 @@ export const FIELD_MAPPING_BY_PROCESS = {
   // ========================================================================
   '2100': {
     description: 'Login (validar credenciales)',
-    encryptFields: ['usr', 'pwd', 'usuario', 'password'],
-    decryptFields: ['idecli', 'tlfdom', 'tlftra', 'tlfcel', 'direma']
+    encryptFields: ['usr', 'pwd'],
+    decryptFields: ['idecli', 'tlfdom', 'tlftra', 'tlfcel', 'direma'] // SIN sufijo E - vienen con nombres normales pero encriptados
   },
 
   '2180': {
     description: 'Login',
     encryptFields: ['identificacion', 'idecl', 'clave'],
-    decryptFields: ['codctaE', 'ideclE']
+    decryptFields: ['codcta', 'idecl'] // SIN sufijo E
   },
 
   '2181': {
@@ -67,30 +82,24 @@ export const FIELD_MAPPING_BY_PROCESS = {
 
   '2151': {
     description: 'Validar fortaleza de contraseña (registro)',
-    encryptFields: ['usr', 'pwd', 'identificacion', 'clave', 'password'],
+    encryptFields: ['usr', 'pwd', 'identificacion', 'idecl', 'clave', 'password'],
     // El backend devuelve 'idecli' e 'idemsg' en la respuesta; desencriptarlas
-    decryptFields: ['idecli', 'idemsg']
+    decryptFields: ['idecli', 'idecl', 'idemsg'] // SIN sufijo E
   },
 
   '2155': {
     description: 'Solicitar código de seguridad OTP',
     encryptFields: [
-      // Identificación del cliente
-      'idecl', 'identificacion',
-      // Cuentas relacionadas
-      'cuenta', 'codcta', 'codctac', 'codctad',
-      // Contactos (donde se envía el OTP)
-      'tlfcel', 'telefono', 'celular',
-      // Mensaje ID (si se reutiliza)
-      'idemsg'
+      // ⚠️ CRÍTICO: SOLO encriptar idecl para este proceso
+      // El backend espera SOLO este campo encriptado
+      'idecl'
     ],
-    decryptFields: ['idecli', 'idemsg'] // El backend devuelve estos campos encriptados en el array cliente
+    decryptFields: ['idemsg'] // SIN sufijo E - El backend devuelve idemsg encriptado
   },
 
   '2156': {
     description: 'Validar código de seguridad OTP',  
     encryptFields: [
-      // ⚠️ IMPORTANTE: idemsg NO se encripta aquí porque YA VIENE ENCRIPTADO del proceso 2155
       'idecl',    // ✅ Identificación del cliente (se encripta)
       'codseg'    // ✅ Código OTP ingresado (se encripta)
       // ❌ idemsg - NO encriptar, ya viene encriptado del backend en proceso 2155
@@ -102,9 +111,9 @@ export const FIELD_MAPPING_BY_PROCESS = {
     description: 'Actualizar/Registrar contraseña y Validar código 2FA',
     encryptFields: [
       // Identificación del cliente (CRÍTICO)
-      'idecl', 'identificacion',
+      'idecl', 'idecli', 'identificacion',
       // Usuario y contraseñas (CRÍTICO)
-      'usr', 'pwd', 'clave', 'claveNueva', 'password',
+      'usr', 'pwd', 'clave', 'claveNueva', 'claveActual', 'password',
       // Código OTP (CRÍTICO para validación)
       'codseg', 'codigo',
       // ⚠️ NO ENCRIPTAR 'idemsg' - Ya viene desencriptado, backend espera valor original
@@ -171,25 +180,36 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2201': {
     description: 'Listar productos financieros (Ahorros/Créditos) según prdfi',
     encryptFields: ['idecl', 'identificacion', 'cedula'],
-    decryptFields: ['codctaE', 'ideclE', 'saldoE', 'salcntE', 'saldisE']
+    decryptFields: [
+      // ⚠️ NO desencriptar 'codcta' - Se necesita encriptado para otros procesos (2212, 2350, etc.)
+      'idecli',  // ID cliente desencriptado
+      'saldo',   // Saldos desencriptados
+      'salcnt',  // Saldo contable
+      'saldis'   // Saldo disponible
+    ]
   },
 
   '2212': {
     description: 'Estado de cuenta / movimientos',
-    encryptFields: ['idecl', 'identificacion', 'codcta', 'cuenta'],
-    decryptFields: ['codctaE', 'valorE', 'vlrE', 'saldoE']
+    encryptFields: [
+      'idecl',          // Cédula cliente (texto plano)
+      'identificacion'  // Identificación (texto plano)
+      // ⚠️ NO encriptar 'codcta' - Ya viene encriptado desde 2201
+      // El frontend debe enviar 'codcta' tal cual lo recibió (encriptado)
+    ],
+    decryptFields: ['valor', 'vlr', 'saldo'] // Valores en movimientos
   },
 
   '2213': {
     description: 'Detalle de inversión',
     encryptFields: ['idecl', 'identificacion', 'codinv', 'codigo'],
-    decryptFields: ['codinvE', 'valorE', 'montoinvE']
+    decryptFields: ['codinv', 'valor', 'montoinv'] // SIN sufijo E
   },
 
   '2220': {
     description: 'Tabla de amortización de crédito',
     encryptFields: ['idecl', 'identificacion', 'codcrd', 'codigocredito'],
-    decryptFields: ['codcrdE', 'valorE', 'saldoE']
+    decryptFields: ['codcrd', 'valor', 'saldo'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -198,19 +218,19 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2300': {
     description: 'Listar cuentas del usuario (origen para transferencias/certificados)',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['codctaE', 'ideclE', 'saldoE', 'salcntE', 'saldisE']
+    decryptFields: ['codcta', 'idecli', 'saldo', 'salcnt', 'saldis'] // SIN sufijo E
   },
 
   '2301': {
     description: 'Detalle de cuenta específica',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'codcta'],
-    decryptFields: ['codctaE', 'salcntE', 'saldisE']
+    decryptFields: ['codcta', 'salcnt', 'saldis'] // SIN sufijo E
   },
 
   '2351': {
     description: 'Consultar cuenta (ejemplo proporcionado)',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'codctad'],
-    decryptFields: ['codctaE']
+    decryptFields: ['codcta'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -230,7 +250,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'valtrnf'       // Valor transferencia
     ],
     // NOTA: tiptrnf NO se encripta (código de tipo)
-    decryptFields: ['saldoE', 'valorE']
+    decryptFields: ['saldo', 'valor'] // SIN sufijo E
   },
 
   '2355': {
@@ -243,6 +263,8 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'codctao',        // Cuenta origen (SENSIBLE)
       'codctad',        // Cuenta destino/origen (SENSIBLE)
       'codctac',        // Cuenta beneficiario (SENSIBLE)
+      'codcta',         // Cuenta genérica
+      'cuenta',         // Cuenta genérica
       'valor',          // Valor (SENSIBLE)
       'monto',          // Monto (SENSIBLE)
       'valtrnf',        // Valor transferencia (SENSIBLE)
@@ -254,7 +276,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'referencia'
       // ⚠️ NO ENCRIPTAR 'idemsg' - Ya viene desencriptado, backend espera valor original
     ],
-    decryptFields: ['codctaE', 'valorE']
+    decryptFields: ['codcta', 'valor'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -285,11 +307,12 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'codigo',
       'codigoSeguridad',
       'bnfema',         // Email beneficiario (SENSIBLE)
-      'bnfcel'          // Celular beneficiario (SENSIBLE)
+      'bnfcel',         // Celular beneficiario (SENSIBLE)
+      'referencia'
       // ⚠️ NO ENCRIPTAR 'idemsg' - Ya viene desencriptado, backend espera valor original
     ],
     // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo), nomclr (nombres), idemsg
-    decryptFields: ['valorE', 'saldoE']
+    decryptFields: ['valor', 'saldo'] // SIN sufijo E
   },
 
   '2361': {
@@ -314,7 +337,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'referencia',
       'idemsg'
     ],
-    decryptFields: ['valorE', 'codctaE']
+    decryptFields: ['valor', 'codcta'] // SIN sufijo E
   },
 
   '2362': {
@@ -336,13 +359,13 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2310': {
     description: 'Obtener lista de instituciones financieras (bancos)',
     encryptFields: [],
-    decryptFields: ['codigoE', 'codE'] // Backend puede enviar códigos encriptados
+    decryptFields: ['codigo', 'cod'] // SIN sufijo E - Backend puede enviar códigos encriptados
   },
 
   '2320': {
     description: 'Obtener tipos de cuentas de captaciones',
     encryptFields: [],
-    decryptFields: ['codigoE', 'codE'] // Backend puede enviar códigos encriptados
+    decryptFields: ['codigo', 'cod'] // SIN sufijo E - Backend puede enviar códigos encriptados
   },
 
   // ========================================================================
@@ -351,18 +374,20 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2325': {
     description: 'Listar beneficiarios cooperativa (internos)',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['codctaE', 'cuentaE']
+    decryptFields: ['codcta', 'cuenta', 'bnfcel', 'bnfema'] // SIN sufijo E
   },
 
   '2330': {
     description: 'Listar beneficiarios externos (otros bancos)',
     encryptFields: ['identificacion', 'idecl'],
     decryptFields: [
-      'cuentaE',              // Cuenta genérica encriptada
-      'cuentaBeneficiarioE',  // Cuenta beneficiario encriptada
-      'codctaE',              // Código cuenta encriptado (número de cuenta)
-      'codctacE'              // Código cuenta cooperativa encriptado
-    ]
+      'cuenta',              // Cuenta genérica encriptada
+      'cuentaBeneficiario',  // Cuenta beneficiario encriptada
+      'codcta',              // Código cuenta encriptado (número de cuenta)
+      'codctac',             // Código cuenta cooperativa encriptado
+      'bnfcel',              // Celular beneficiario encriptado
+      'bnfema'               // Email beneficiario encriptado
+    ] // SIN sufijo E
   },
 
   '2335': {
@@ -383,13 +408,21 @@ export const FIELD_MAPPING_BY_PROCESS = {
       // ✅ SOLO CAMPOS SENSIBLES - NO CÓDIGOS DE CATÁLOGO
       'identificacion',
       'idecl',        // Cédula del cliente (SENSIBLE)
+      'idecli',       // Cédula variante
       'ideclr',       // Cédula/RUC receptor (SENSIBLE) 
       'codctac',      // Número de cuenta beneficiario (SENSIBLE)
+      'cuenta',       // Cuenta genérica
       'bnfema',       // Email beneficiario (SENSIBLE)
-      'bnfcel'        // Celular beneficiario (SENSIBLE)
+      'bnfcel',       // Celular beneficiario (SENSIBLE)
+      'tlfcel',       // Teléfono celular
+      'telefono',     // Teléfono
+      'celular',      // Celular
+      'email',        // Email
+      'correo',       // Correo
+      'direma'        // Dirección email
     ],
     // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo), nomclr (nombre)
-    decryptFields: ['codctaE', 'codctacE']
+    decryptFields: ['codcta', 'codctac', 'bnfcel', 'bnfema'] // SIN sufijo E
   },
 
   '2370': {
@@ -414,7 +447,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2369': {
     description: 'Parámetros de inversión',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['montoMinimoE', 'montoMaximoE', 'valorE']
+    decryptFields: ['montoMinimo', 'montoMaximo', 'monto', 'valor', 'vlr', 'valinver'] // SIN sufijo E
   },
 
   '2371': {
@@ -425,20 +458,20 @@ export const FIELD_MAPPING_BY_PROCESS = {
 
   '2372': {
     description: 'Tipos de pago de interés',
-    encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto'],
-    decryptFields: ['valorE', 'montoE']
+    encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto', 'vlr', 'montoinv'],
+    decryptFields: ['valor', 'vlr', 'monto', 'montoinv', 'valinver', 'interes'] // SIN sufijo E
   },
 
   '2373': {
     description: 'Calcular inversión (simulador)',
-    encryptFields: ['identificacion', 'idecl', 'valinver', 'monto', 'valor'],
-    decryptFields: ['montoE', 'valorE', 'interesE', 'valinverE']
+    encryptFields: ['identificacion', 'idecl', 'valinver', 'monto', 'valor', 'vlr', 'montoinv'],
+    decryptFields: ['monto', 'montoinv', 'valor', 'vlr', 'interes', 'valinver'] // SIN sufijo E
   },
 
   '2374': {
     description: 'Listar cuentas (para inversión o certificados)',
-    encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto'],
-    decryptFields: ['codctaE', 'saldoE', 'valorE', 'montoE', 'salcntE', 'saldisE']
+    encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto', 'vlr'],
+    decryptFields: ['codcta', 'saldo', 'sldcta', 'valor', 'vlr', 'monto', 'salcnt', 'saldis', 'salcap', 'valinver'] // SIN sufijo E
   },
 
   '2375': {
@@ -447,11 +480,15 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'identificacion',
       'idecl',
       'codctadp',  // Cuenta a debitar
+      'codcta',    // Cuenta genérica
+      'cuenta',    // Cuenta genérica
       'valinver',  // Valor de inversión
       'monto',     // Alias de valor (por si acaso)
-      'valor'      // Alias alternativo
+      'valor',     // Alias alternativo
+      'vlr',       // Valor abreviado
+      'montoinv'   // Monto inversión
     ],
-    decryptFields: ['valinverE', 'montoE', 'valorE', 'codctaE']
+    decryptFields: ['valinver', 'monto', 'montoinv', 'valor', 'vlr', 'codcta', 'codctadp', 'interes'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -460,7 +497,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2213': {
     description: 'Detalle de inversión',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['montoE', 'valorE', 'interesE']
+    decryptFields: ['monto', 'montoinv', 'valor', 'vlr', 'interes', 'valinver', 'codinv'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -469,7 +506,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2400': {
     description: 'Obtener costo del certificado',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['valcmsE'] // Valor del costo del certificado
+    decryptFields: ['valcms', 'valor', 'vlr'] // SIN sufijo E
   },
 
   '2401': {
@@ -478,10 +515,16 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'identificacion',
       'idecl',        // Cédula del cliente (SENSIBLE)
       'codctad',      // Cuenta a debitar el costo (SENSIBLE)
-      'valtrns'       // ✅ CORRECTO: Valor del certificado (según backend del ingeniero)
+      'codcta',       // Cuenta genérica
+      'cuenta',       // Cuenta genérica
+      'valtrns',      // ✅ CORRECTO: Valor del certificado (según backend del ingeniero)
+      'valor',        // Valor genérico
+      'monto',        // Monto genérico
+      'valtrnf',      // Valor transferencia
+      'vlr'           // Valor abreviado
       // ❌ NO ENCRIPTAR: ctrvalor (código de catálogo - tipo de transacción)
     ],
-    decryptFields: ['codctaE', 'valorE', 'saldoE'] // Respuesta con datos del certificado
+    decryptFields: ['codcta', 'codctad', 'valor', 'vlr', 'saldo', 'sldcta', 'valtrn', 'valtrnf', 'valtrns'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -490,19 +533,19 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2410': {
     description: 'Productos de crédito',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'monto', 'valor'],
-    decryptFields: ['valorE', 'montoE', 'saldoE']
+    decryptFields: ['valor', 'monto', 'saldo'] // SIN sufijo E
   },
 
   '2420': {
     description: 'Productos de seguros',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'valor'],
-    decryptFields: ['valorE']
+    decryptFields: ['valor'] // SIN sufijo E
   },
 
   '2430': {
     description: 'Productos de tarjetas',
     encryptFields: ['identificacion', 'idecl', 'cuenta'],
-    decryptFields: ['codctaE']
+    decryptFields: ['codcta'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -511,7 +554,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2500': {
     description: 'Servicios Facilito - Pago de servicios',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'codcta', 'valor', 'monto', 'codigo', 'referencia'],
-    decryptFields: ['valorE', 'codctaE']
+    decryptFields: ['valor', 'codcta'] // SIN sufijo E
   },
 
   // ========================================================================
@@ -701,18 +744,19 @@ export const getMappingStats = () => {
 // ============================================================================
 
 if (import.meta.env.DEV) {
-  console.log('📋 Configuración de Field Mapper cargada (v2025-10-29):');
+  console.log('📋 Configuración de Field Mapper cargada (v2025-11-07):');
   const stats = getMappingStats();
   console.table(stats.processesByCategory);
   console.log(`✅ ${stats.totalMappedProcesses} procesos mapeados`);
   console.log(`🔒 ${stats.totalUniqueEncryptFields} campos únicos para encriptar`);
   console.log(`🔓 ${stats.totalUniqueDecryptFields} campos únicos para desencriptar`);
   
-  // LOG ESPECÍFICO PARA PROCESO 2365
-  const process2365 = FIELD_MAPPING_BY_PROCESS['2365'];
-  console.log('🔍 [VERIFICACIÓN] Configuración proceso 2365 (Crear beneficiario):');
-  console.log('   📝 Campos a encriptar:', process2365.encryptFields);
-  console.log('   ⚠️ NO debe incluir: codifi, codtidr, codtcur');
+  // LOG ESPECÍFICO PARA VERIFICACIÓN DE CAMPOS AGREGADOS
+  console.log('🔍 [VERIFICACIÓN] Campos agregados en actualización 2025-11-07:');
+  console.log('   ✅ idecli, ideclien, tlfdom, tlftra');
+  console.log('   ✅ vlr, vlrtrn, valtrns, valcms');
+  console.log('   ✅ sldcta, salcap, mntcap, montoinv');
+  console.log('   ✅ Sufijos E completos para respuestas del backend');
 }
 
 // ============================================================================

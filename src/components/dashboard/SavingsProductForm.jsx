@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { MdSavings } from "react-icons/md";
 import apiService from "../../services/apiService"; // Ajustar ruta según tu estructura
+import { decrypt } from "../../utils/crypto"; // ⚠️ Importar decrypt para desencriptar codcta en UI
 
 // Importar jsPDF para generar PDFs
 import jsPDF from "jspdf";
@@ -249,21 +250,90 @@ const SavingsProductForm = () => {
           "✅ [SAVINGS] Cuentas cargadas exitosamente:",
           result.data.cuentas
         );
+        console.log("✅ [SAVINGS] Cuenta RAW ejemplo (COMPLETA):", JSON.stringify(result.data.cuentas[0], null, 2));
 
         // Mapear datos de API a formato del componente
-        const mappedAccounts = result.data.cuentas.map((cuenta) => ({
-          id: cuenta.codcta,
-          type: cuenta.desdep,
-          balance: parseFloat(cuenta.saldis || cuenta.salcnt || 0),
-          availableBalance: parseFloat(cuenta.saldis || 0),
-          totalBalance: parseFloat(cuenta.salcnt || 0),
-          status: cuenta.desect,
-          accountNumber: formatAccountNumber(cuenta.codcta),
-          currency: "USD",
-          interestRate: getInterestRateByType(cuenta.desdep),
-          lastMovement: new Date().toISOString().split("T")[0], // Fecha actual como placeholder
-        }));
+        const mappedAccounts = result.data.cuentas.map((cuenta, index) => {
+          if (index === 0) {
+            console.log('🔍 [SAVINGS] Procesando PRIMERA cuenta DETALLADA:');
+            console.log('🔍 [SAVINGS] - codcta:', cuenta.codcta, '(length:', cuenta.codcta?.length, ')');
+            console.log('🔍 [SAVINGS] - saldis:', cuenta.saldis, '(type:', typeof cuenta.saldis, ')');
+            console.log('🔍 [SAVINGS] - salcnt:', cuenta.salcnt, '(type:', typeof cuenta.salcnt, ')');
+            console.log('🔍 [SAVINGS] - saldo:', cuenta.saldo, '(type:', typeof cuenta.saldo, ')');
+            console.log('🔍 [SAVINGS] - TODOS los campos:', Object.keys(cuenta).join(', '));
+          }
 
+          // 🔓 Desencriptar codcta SOLO para mostrar en UI
+          let codctaDecrypted;
+          try {
+            codctaDecrypted = decrypt(cuenta.codcta);
+            if (index === 0) {
+              console.log(`🔓 [SAVINGS] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [SAVINGS] Error al desencriptar codcta:', error);
+            codctaDecrypted = cuenta.codcta; // Fallback: usar valor original
+          }
+
+          // 🔓 Desencriptar saldos si vienen encriptados (strings largos tipo Base64)
+          let saldisDecrypted = cuenta.saldis;
+          let salcntDecrypted = cuenta.salcnt;
+
+          // Detectar si los saldos están encriptados (strings largos, no números)
+          if (typeof cuenta.saldis === 'string' && cuenta.saldis.length > 10 && cuenta.saldis.includes('=')) {
+            try {
+              saldisDecrypted = decrypt(cuenta.saldis);
+              if (index === 0) {
+                console.log(`🔓 [SAVINGS] Desencriptando saldis: ${cuenta.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [SAVINGS] Error al desencriptar saldis:', error);
+            }
+          }
+
+          if (typeof cuenta.salcnt === 'string' && cuenta.salcnt.length > 10 && cuenta.salcnt.includes('=')) {
+            try {
+              salcntDecrypted = decrypt(cuenta.salcnt);
+              if (index === 0) {
+                console.log(`🔓 [SAVINGS] Desencriptando salcnt: ${cuenta.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [SAVINGS] Error al desencriptar salcnt:', error);
+            }
+          }
+
+          const balance = parseFloat(saldisDecrypted || salcntDecrypted || 0);
+          const availableBalance = parseFloat(saldisDecrypted || 0);
+          const totalBalance = parseFloat(salcntDecrypted || 0);
+
+          if (index === 0) {
+            console.log('💰 [SAVINGS] Saldos parseados:', {
+              balance,
+              availableBalance,
+              totalBalance,
+              saldisOriginal: cuenta.saldis,
+              saldisDecrypted,
+              salcntOriginal: cuenta.salcnt,
+              salcntDecrypted
+            });
+          }
+
+          return {
+            id: cuenta.codcta, // ⚠️ MANTENER ENCRIPTADO - se usa para enviar a otras APIs
+            codctaDisplay: codctaDecrypted, // 🔓 DESENCRIPTADO - solo para mostrar en UI
+            type: cuenta.desdep,
+            balance,
+            availableBalance,
+            totalBalance,
+            status: cuenta.desect,
+            accountNumber: formatAccountNumber(codctaDecrypted), // Usar versión desencriptada
+            currency: "USD",
+            interestRate: getInterestRateByType(cuenta.desdep),
+            lastMovement: new Date().toISOString().split("T")[0], // Fecha actual como placeholder
+          };
+        });
+
+        console.log("🔍 [SAVINGS] Cuenta mapeada ejemplo:", mappedAccounts[0]);
         setSavingsAccounts(mappedAccounts);
         setClienteInfo(result.data.cliente);
       } else {
@@ -978,7 +1048,7 @@ const SavingsProductForm = () => {
                     Número de Cuenta
                   </p>
                   <p className="font-bold text-gray-800">
-                    {selectedAccount.id}
+                    {selectedAccount.accountNumber}
                   </p>
                 </div>
                 <div className="text-center p-4 bg-gray-50 rounded-xl">
