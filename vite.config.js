@@ -1,37 +1,65 @@
-// vite.config.js - Configuración para servidor Debian 13 (192.168.0.59)
-import { defineConfig } from 'vite'
+// vite.config.js - Configuración multi-ambiente (Desarrollo + Producción)
+import { defineConfig, loadEnv } from 'vite'
 import path from 'path'
 
-export default defineConfig({
-  // Base: Raíz del sitio (sin subdirectorios)
-  base: '/',
+export default defineConfig(({ mode }) => {
+  // Cargar variables de entorno según el modo
+  const env = loadEnv(mode, process.cwd(), '')
   
-  // Servidor de desarrollo LOCAL (npm run dev)
-  server: {
-    port: 3000,
-    host: '0.0.0.0',
-    cors: true,
+  // Determinar el servidor backend según el ambiente
+  // DESARROLLO: 192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php
+  // PRODUCCIÓN: 192.168.0.59/wsVirtualCoopSrvL/ws_server/prctrans.php
+  const API_TARGET = mode === 'production' 
+    ? 'http://192.168.0.59'      // PRODUCCIÓN
+    : 'http://192.168.200.102'   // DESARROLLO
+
+  const API_PATH = mode === 'production'
+    ? '/wsVirtualCoopSrvL/ws_server'  // PRODUCCIÓN (servidor L)
+    : '/wsVirtualCoopSrvP/ws_server'  // DESARROLLO (servidor P)
+
+  console.log('🚀 [VITE] Modo:', mode)
+  console.log('🌐 [VITE] API Target:', API_TARGET)
+  console.log('📁 [VITE] API Path:', API_PATH)
+
+  return {
+    // Base: Raíz del sitio (sin subdirectorios)
+    base: '/',
     
-    // Proxy para desarrollo: React local (3000) → Servidor Debian (192.168.0.59)
-    // En producción esto NO se usa, Nginx hace el proxy directamente
-    proxy: {
-      '/api-l': {
-        target: 'http://192.168.0.59',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path  // Mantener /api-l/prctrans.php
-      },
-      '/api': {
-        target: 'http://192.168.0.59',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path  // Mantener /api/prctrans.php
+    // Servidor de desarrollo LOCAL (npm run dev)
+    server: {
+      port: 3000,
+      host: '0.0.0.0',
+      cors: true,
+      
+      // Proxy dinámico según ambiente
+      proxy: {
+        '/api-l': {
+          target: API_TARGET,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace('/api-l', API_PATH),  // /api-l → /wsVirtualCoopSrvP/ws_server
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              console.log('🔄 [PROXY /api-l]', req.method, req.url, '→', API_TARGET + API_PATH + req.url.replace('/api-l', ''))
+            })
+          }
+        },
+        '/api': {
+          target: API_TARGET,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace('/api', API_PATH),  // /api → /wsVirtualCoopSrvP/ws_server
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              console.log('🔄 [PROXY /api]', req.method, req.url, '→', API_TARGET + API_PATH + req.url.replace('/api', ''))
+            })
+          }
+        }
       }
-    }
-  },
-  
-  // Build de producción (npm run build)
-  build: {
+    },
+    
+    // Build de producción (npm run build)
+    build: {
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,  // No exponer código fuente
@@ -61,10 +89,11 @@ export default defineConfig({
       '@assets': path.resolve(__dirname, './src/assets'),
     }
   },
-  
-  plugins: [],
-  
-  css: {
-    devSourcemap: true  // Source maps solo en desarrollo
+    
+    plugins: [],
+    
+    css: {
+      devSourcemap: true  // Source maps solo en desarrollo
+    }
   }
 })

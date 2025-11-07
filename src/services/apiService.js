@@ -1342,7 +1342,7 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     }
 
     // PRUEBA 2: Petición a través del proxy
-    console.log('🧪 [DEBUG] === PRUEBA 2: Petición a través del proxy ===');
+    cons  .log('🧪 [DEBUG] === PRUEBA 2: Petición a través del proxy ===');
     console.log('🌐 [DEBUG] URL del proxy:', targetUrl);
 
     try {
