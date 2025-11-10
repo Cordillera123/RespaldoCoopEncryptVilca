@@ -581,7 +581,7 @@ const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }
   };
 
   const formatAccountDisplay = (account) => {
-    return `${account.descripcion} - ${account.codigo} | ${formatCurrency(account.saldoDisponible)}`;
+    return `${account.descripcion} - ${account.numeroFormateado || account.numeroDesencriptado || account.codigo} | ${formatCurrency(account.saldoDisponible)}`;
   };
 
   const formatBeneficiaryDisplay = (beneficiary) => {

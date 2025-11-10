@@ -374,7 +374,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2325': {
     description: 'Listar beneficiarios cooperativa (internos)',
     encryptFields: ['identificacion', 'idecl'],
-    decryptFields: ['codcta', 'cuenta', 'bnfcel', 'bnfema'] // SIN sufijo E
+    decryptFields: ['codcta', 'cuenta', 'bnfcel', 'bnfema', 'ideclr', 'cedula'] // SIN sufijo E
   },
 
   '2330': {
@@ -386,7 +386,9 @@ export const FIELD_MAPPING_BY_PROCESS = {
       'codcta',              // Código cuenta encriptado (número de cuenta)
       'codctac',             // Código cuenta cooperativa encriptado
       'bnfcel',              // Celular beneficiario encriptado
-      'bnfema'               // Email beneficiario encriptado
+      'bnfema',              // Email beneficiario encriptado
+      'ideclr',              // Cédula/RUC del beneficiario encriptado
+      'cedula'               // Cédula beneficiario (alias)
     ] // SIN sufijo E
   },
 

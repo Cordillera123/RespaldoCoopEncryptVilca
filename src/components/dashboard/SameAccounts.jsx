@@ -441,11 +441,11 @@ const SameAccounts = ({ onBack, openWindow }) => {
   };
 
   const formatAccountDisplay = (account) => {
-    return `${account.descripcion} - ${account.codigo} | ${formatCurrency(account.saldoDisponible)}`;
+    return `${account.descripcion} - ${account.numeroFormateado || account.numeroDesencriptado || account.codigo} | ${formatCurrency(account.saldoDisponible)}`;
   };
 
   const formatAccountDisplayDestination = (account) => {
-    return `${account.descripcion} - ${account.codigo}`;
+    return `${account.descripcion} - ${account.numeroFormateado || account.numeroDesencriptado || account.codigo}`;
   };
 
   const getAvailableDestinationAccounts = () => {

@@ -174,12 +174,33 @@ const InternaTransferWindow = ({ openWindow }) => {
         return accountNumber; // Ya está en texto plano
       };
 
+      // **NUEVO: Desencriptar cédulas que vienen encriptadas**
+      const decryptCedulaIfNeeded = (cedula) => {
+        if (!cedula) return '';
+        
+        // Si la cédula tiene el patrón de encriptación (contiene = o es muy larga)
+        // Las cédulas normales son de 10 dígitos, si tiene más de 15 caracteres probablemente esté encriptada
+        if (cedula.includes('=') || cedula.length > 15) {
+          try {
+            const decrypted = decrypt(cedula);
+            console.log(`🔓 [TRANSFER] Cédula desencriptada: ${cedula.substring(0, 10)}... → ${decrypted}`);
+            return decrypted;
+          } catch (error) {
+            console.error(`❌ [TRANSFER] Error desencriptando cédula:`, error);
+            return cedula; // Devolver original si falla
+          }
+        }
+        return cedula; // Ya está en texto plano
+      };
+
       // Normalizar y RE-VALIDAR beneficiarios cooperativa
       // Usar codifi en lugar del nombre del banco
       const normalizedCoop = (coopList || []).map(b => {
         const isInternal = isSameInstitution(b);
         const originalAccount = b.accountNumber || b.codcta;
         const decryptedAccount = decryptAccountIfNeeded(originalAccount);
+        const originalCedula = b.cedula || b.ideclr || b.idecl;
+        const decryptedCedula = decryptCedulaIfNeeded(originalCedula);
         
         console.log(`🔍 [TRANSFER] Beneficiario cooperativo: ${b.name} (${b.bank}, cod: ${b.bankCode || b.codifi}) - ¿Misma institución?: ${isInternal}`);
         
@@ -187,6 +208,8 @@ const InternaTransferWindow = ({ openWindow }) => {
           ...b,
           accountNumber: decryptedAccount, // Mostrar cuenta desencriptada
           accountNumberEncrypted: originalAccount, // Preservar original encriptado para eliminación
+          cedula: decryptedCedula, // Mostrar cédula desencriptada
+          cedulaEncrypted: originalCedula, // Preservar original encriptado
           isCoopMember: isInternal,
           isInternal: isInternal
         };
@@ -197,6 +220,8 @@ const InternaTransferWindow = ({ openWindow }) => {
         const isInternal = isSameInstitution(b);
         const originalAccount = b.accountNumber || b.codcta;
         const decryptedAccount = decryptAccountIfNeeded(originalAccount);
+        const originalCedula = b.cedula || b.ideclr || b.idecl;
+        const decryptedCedula = decryptCedulaIfNeeded(originalCedula);
         
         console.log(`🔍 [TRANSFER] Beneficiario externo: ${b.name} (${b.bank}, cod: ${b.bankCode || b.codifi}) - ¿Misma institución?: ${isInternal}`);
         
@@ -204,6 +229,8 @@ const InternaTransferWindow = ({ openWindow }) => {
           ...b,
           accountNumber: decryptedAccount, // Mostrar cuenta desencriptada
           accountNumberEncrypted: originalAccount, // Preservar original encriptado para eliminación
+          cedula: decryptedCedula, // Mostrar cédula desencriptada
+          cedulaEncrypted: originalCedula, // Preservar original encriptado
           isCoopMember: isInternal,
           isInternal: isInternal
         };
