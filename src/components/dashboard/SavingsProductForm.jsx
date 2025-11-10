@@ -471,17 +471,69 @@ const SavingsProductForm = () => {
       });
 
       // Mapear movimientos de API a formato del componente
-      const mappedMovements = result.data.movimientos.map((mov, index) => ({
-        id: index + 1,
-        date: formatDateForDisplay(mov.fectrn),
-        description: getMovementDescription(mov.tiptrn, mov.docnum),
-        reference: mov.docnum,
-        debit: parseFloat(mov.valdeb || 0),
-        credit: parseFloat(mov.valcre || 0),
-        balance: parseFloat(mov.saldos || 0),
-        type: parseFloat(mov.valcre || 0) > 0 ? "credit" : "debit",
-        channel: getChannelName(mov.codcaj, mov.tiptrn),
-      }));
+      const mappedMovements = result.data.movimientos.map((mov, index) => {
+        // 🔍 DEBUG: Ver primer movimiento después de desencriptación automática
+        if (index === 0) {
+          console.log('🔍 [MOVEMENT-MAP] Primer movimiento DESPUÉS de desencriptación automática:');
+          console.log('🔍 [MOVEMENT-MAP] - valcre:', mov.valcre, 'Type:', typeof mov.valcre);
+          console.log('🔍 [MOVEMENT-MAP] - valdeb:', mov.valdeb, 'Type:', typeof mov.valdeb);
+          console.log('🔍 [MOVEMENT-MAP] - saldos:', mov.saldos, 'Type:', typeof mov.saldos);
+          console.log('🔍 [MOVEMENT-MAP] - Todos los campos:', Object.keys(mov).join(', '));
+        }
+
+        // 🔓 Desencriptar valores manualmente (el sistema automático no llega a arrays anidados)
+        let valcreDecrypted = mov.valcre;
+        let valdebDecrypted = mov.valdeb;
+        let saldosDecrypted = mov.saldos;
+
+        // Detectar y desencriptar valcre si es Base64
+        if (typeof mov.valcre === 'string' && mov.valcre.length > 10 && mov.valcre.includes('=')) {
+          try {
+            valcreDecrypted = decrypt(mov.valcre);
+            if (index === 0) {
+              console.log(`🔓 [MOVEMENT-MAP] Desencriptando valcre: ${mov.valcre.substring(0, 20)}... -> ${valcreDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [MOVEMENT-MAP] Error al desencriptar valcre:', error);
+          }
+        }
+
+        // Detectar y desencriptar valdeb si es Base64
+        if (typeof mov.valdeb === 'string' && mov.valdeb.length > 10 && mov.valdeb.includes('=')) {
+          try {
+            valdebDecrypted = decrypt(mov.valdeb);
+            if (index === 0) {
+              console.log(`🔓 [MOVEMENT-MAP] Desencriptando valdeb: ${mov.valdeb.substring(0, 20)}... -> ${valdebDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [MOVEMENT-MAP] Error al desencriptar valdeb:', error);
+          }
+        }
+
+        // Detectar y desencriptar saldos si es Base64
+        if (typeof mov.saldos === 'string' && mov.saldos.length > 10 && mov.saldos.includes('=')) {
+          try {
+            saldosDecrypted = decrypt(mov.saldos);
+            if (index === 0) {
+              console.log(`🔓 [MOVEMENT-MAP] Desencriptando saldos: ${mov.saldos.substring(0, 20)}... -> ${saldosDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [MOVEMENT-MAP] Error al desencriptar saldos:', error);
+          }
+        }
+
+        return {
+          id: index + 1,
+          date: formatDateForDisplay(mov.fectrn),
+          description: getMovementDescription(mov.tiptrn, mov.docnum),
+          reference: mov.docnum,
+          debit: parseFloat(valdebDecrypted || 0),
+          credit: parseFloat(valcreDecrypted || 0),
+          balance: parseFloat(saldosDecrypted || 0),
+          type: parseFloat(valcreDecrypted || 0) > 0 ? "credit" : "debit",
+          channel: getChannelName(mov.codcaj, mov.tiptrn),
+        };
+      });
 
       console.log("📋 [STATEMENT] Movimientos mapeados:");
       mappedMovements.forEach((mov, index) => {
@@ -490,13 +542,9 @@ const SavingsProductForm = () => {
 
       setAccountStatement(mappedMovements);
 
-      if (result.data.cuenta) {
-        setSelectedAccount((prev) => ({
-          ...prev,
-          balance: parseFloat(result.data.cuenta.saldis || prev.balance),
-          totalBalance: parseFloat(result.data.cuenta.salcnt || prev.totalBalance),
-        }));
-      }
+      // ⚠️ NO actualizar saldos desde result.data.cuenta - vienen corruptos del backend
+      // Los saldos correctos ya están en selectedAccount (desde proceso 2201)
+      console.log("ℹ️ [STATEMENT] Manteniendo saldos de cuenta original (no usar valores corruptos del backend)");
     } else {
       console.error("❌ [STATEMENT] Error al cargar estado de cuenta:", result.error);
       setStatementError(result.error.message || "Error al cargar el estado de cuenta");

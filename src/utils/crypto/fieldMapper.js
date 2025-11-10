@@ -197,7 +197,14 @@ export const FIELD_MAPPING_BY_PROCESS = {
       // ⚠️ NO encriptar 'codcta' - Ya viene encriptado desde 2201
       // El frontend debe enviar 'codcta' tal cual lo recibió (encriptado)
     ],
-    decryptFields: ['valor', 'vlr', 'saldo'] // Valores en movimientos
+    decryptFields: [
+      'valcre',  // Valor crédito en movimientos
+      'valdeb',  // Valor débito en movimientos
+      'saldos',  // Saldo en movimientos (CON 's')
+      'dettrn'   // Detalle de transacción
+      // ⚠️ NO desencriptar campos de 'cuenta' - vienen corruptos del backend
+      // Usar los valores de la lista de cuentas (proceso 2201) en su lugar
+    ]
   },
 
   '2213': {

@@ -557,6 +557,16 @@ class ApiService {
 
       if (accountsResult.success && result.data.cliente?.cuentas && Array.isArray(result.data.cliente.cuentas)) {
         console.log('✅ [SAVINGS] Cuentas obtenidas exitosamente:', result.data.cliente.cuentas.length, 'cuentas');
+        
+        // 🔍 DEBUG: Ver primera cuenta COMPLETA
+        if (result.data.cliente.cuentas.length > 0) {
+          const firstAccount = result.data.cliente.cuentas[0];
+          console.log('🔍 [SAVINGS-API] Primera cuenta COMPLETA:', JSON.stringify(firstAccount, null, 2));
+          console.log('🔍 [SAVINGS-API] Campo salcnt:', firstAccount.salcnt, 'Type:', typeof firstAccount.salcnt);
+          console.log('🔍 [SAVINGS-API] Campo saldis:', firstAccount.saldis, 'Type:', typeof firstAccount.saldis);
+          console.log('🔍 [SAVINGS-API] Campo saldo:', firstAccount.saldo, 'Type:', typeof firstAccount.saldo);
+          console.log('🔍 [SAVINGS-API] Todos los campos disponibles:', Object.keys(firstAccount).join(', '));
+        }
 
         return {
           success: true,
@@ -646,6 +656,16 @@ class ApiService {
       if (statementResult.success && result.data.cliente) {
         const movements = result.data.cliente.detalle || [];
         console.log('✅ [STATEMENT] Estado de cuenta obtenido:', movements.length, 'movimientos');
+        
+        // 🔍 DEBUG: Ver primer movimiento completo
+        if (movements.length > 0) {
+          console.log('🔍 [STATEMENT] Primer movimiento COMPLETO:', JSON.stringify(movements[0], null, 2));
+          console.log('🔍 [STATEMENT] Campo saldo:', movements[0].saldo, 'Type:', typeof movements[0].saldo);
+          console.log('🔍 [STATEMENT] Campo valor:', movements[0].valor, 'Type:', typeof movements[0].valor);
+        }
+        
+        // 🔍 DEBUG: Ver datos de cuenta
+        console.log('🔍 [STATEMENT] Datos cuenta completos:', JSON.stringify(result.data.cliente.cuenta, null, 2));
 
         return {
           success: true,
