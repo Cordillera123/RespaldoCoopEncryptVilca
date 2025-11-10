@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { MdAccountBalance } from "react-icons/md";
 import apiService from '../../services/apiService'; // Ajustar ruta según tu estructura
+import { decrypt } from '../../utils/crypto'; // ⚠️ Importar decrypt para desencriptar valores
 
 // Importar jsPDF para generar PDFs
 import jsPDF from 'jspdf';
@@ -106,21 +107,83 @@ const CreditProductForm = () => {
         console.log('✅ [CREDITS] Créditos cargados exitosamente:', result.data.creditos);
         
         // Mapear datos de API a formato del componente
-        const mappedCredits = result.data.creditos.map(credito => ({
-          id: credito.codcrd,
-          type: credito.destcr,
-          originalAmount: parseFloat(credito.mntcap || 0),
-          currentBalance: parseFloat(credito.salcap || 0),
-          dueDate: credito.fecvnc,
-          status: credito.desecr,
-          creditNumber: formatCreditNumber(credito.codcrd),
-          currency: "USD",
-          // Estos valores se actualizarán cuando se cargue la amortización
-          monthlyPayment: 0,
-          interestRate: 0,
-          remainingPayments: 0,
-          nextPaymentDate: credito.fecvnc
-        }));
+        const mappedCredits = result.data.creditos.map((credito, index) => {
+          if (index === 0) {
+            console.log('🔍 [CREDITS] Procesando PRIMER crédito DETALLADO:');
+            console.log('🔍 [CREDITS] - codcrd:', credito.codcrd, '(length:', credito.codcrd?.length, ')');
+            console.log('🔍 [CREDITS] - mntcap:', credito.mntcap, '(type:', typeof credito.mntcap, ')');
+            console.log('🔍 [CREDITS] - salcap:', credito.salcap, '(type:', typeof credito.salcap, ')');
+            console.log('🔍 [CREDITS] - TODOS los campos:', Object.keys(credito).join(', '));
+          }
+
+          // 🔓 Desencriptar valores manualmente (el sistema automático no llega a arrays anidados)
+          let codcrdDecrypted = credito.codcrd;
+          let mntcapDecrypted = credito.mntcap;
+          let salcapDecrypted = credito.salcap;
+
+          // Detectar y desencriptar codcrd si es Base64
+          if (typeof credito.codcrd === 'string' && credito.codcrd.length > 10 && credito.codcrd.includes('=')) {
+            try {
+              codcrdDecrypted = decrypt(credito.codcrd);
+              if (index === 0) {
+                console.log(`🔓 [CREDITS] Desencriptando codcrd: ${credito.codcrd.substring(0, 20)}... -> ${codcrdDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CREDITS] Error al desencriptar codcrd:', error);
+            }
+          }
+
+          // Detectar y desencriptar mntcap si es Base64
+          if (typeof credito.mntcap === 'string' && credito.mntcap.length > 10 && credito.mntcap.includes('=')) {
+            try {
+              mntcapDecrypted = decrypt(credito.mntcap);
+              if (index === 0) {
+                console.log(`🔓 [CREDITS] Desencriptando mntcap: ${credito.mntcap.substring(0, 20)}... -> ${mntcapDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CREDITS] Error al desencriptar mntcap:', error);
+            }
+          }
+
+          // Detectar y desencriptar salcap si es Base64
+          if (typeof credito.salcap === 'string' && credito.salcap.length > 10 && credito.salcap.includes('=')) {
+            try {
+              salcapDecrypted = decrypt(credito.salcap);
+              if (index === 0) {
+                console.log(`🔓 [CREDITS] Desencriptando salcap: ${credito.salcap.substring(0, 20)}... -> ${salcapDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CREDITS] Error al desencriptar salcap:', error);
+            }
+          }
+
+          if (index === 0) {
+            console.log('💰 [CREDITS] Valores parseados:', {
+              originalAmount: parseFloat(mntcapDecrypted || 0),
+              currentBalance: parseFloat(salcapDecrypted || 0),
+              mntcapOriginal: credito.mntcap,
+              mntcapDecrypted,
+              salcapOriginal: credito.salcap,
+              salcapDecrypted
+            });
+          }
+
+          return {
+            id: credito.codcrd, // Mantener encriptado para enviar a APIs
+            type: credito.destcr,
+            originalAmount: parseFloat(mntcapDecrypted || 0),
+            currentBalance: parseFloat(salcapDecrypted || 0),
+            dueDate: credito.fecvnc,
+            status: credito.desecr,
+            creditNumber: formatCreditNumber(codcrdDecrypted), // ✅ Usar versión desencriptada
+            currency: "USD",
+            // Estos valores se actualizarán cuando se cargue la amortización
+            monthlyPayment: 0,
+            interestRate: 0,
+            remainingPayments: 0,
+            nextPaymentDate: credito.fecvnc
+          };
+        });
         
         setCredits(mappedCredits);
         setClienteInfo(result.data.cliente);
@@ -172,32 +235,166 @@ const CreditProductForm = () => {
         console.log('✅ [AMORTIZATION] Tabla de amortización cargada:', result.data.cuotas.length, 'cuotas');
         
         // Mapear cuotas de API a formato del componente
-        const mappedAmortization = result.data.cuotas.map((cuota, index) => ({
-          id: index + 1,
-          paymentNumber: parseInt(cuota.numcuo || 0),
-          date: formatDisplayDate(cuota.fecvnc),
-          capital: parseFloat(cuota.valcap || 0),
-          interest: parseFloat(cuota.valint || 0),
-          others: parseFloat(cuota.valotr || 0),        // ← NUEVO: Otros valores
-          paymentAmount: parseFloat(cuota.valcuo || 0), // ← Renombrado para claridad
-          balance: parseFloat(cuota.salcuo || 0),       // ← Usar salcuo (saldo de cuota)
-          status: getPaymentStatus(cuota.estcuo),
-          reference: `AMT-${cuota.numcuo?.padStart(3, '0')}`,
-          originalStatus: cuota.estcuo
-        }));
+        const mappedAmortization = result.data.cuotas.map((cuota, index) => {
+          // 🔍 DEBUG: Ver primera cuota
+          if (index === 0) {
+            console.log('🔍 [AMORTIZATION-MAP] Primera cuota COMPLETA:', JSON.stringify(cuota, null, 2));
+            console.log('🔍 [AMORTIZATION-MAP] - valcap:', cuota.valcap, 'Type:', typeof cuota.valcap);
+            console.log('🔍 [AMORTIZATION-MAP] - valint:', cuota.valint, 'Type:', typeof cuota.valint);
+            console.log('🔍 [AMORTIZATION-MAP] - valcuo:', cuota.valcuo, 'Type:', typeof cuota.valcuo);
+            console.log('🔍 [AMORTIZATION-MAP] - salcuo:', cuota.salcuo, 'Type:', typeof cuota.salcuo);
+          }
+
+          // 🔓 Desencriptar valores manualmente
+          let valcapDecrypted = cuota.valcap;
+          let valintDecrypted = cuota.valint;
+          let valotrDecrypted = cuota.valotr;
+          let valcuoDecrypted = cuota.valcuo;
+          let salcuoDecrypted = cuota.salcuo;
+
+          // Detectar y desencriptar cada campo si es Base64
+          if (typeof cuota.valcap === 'string' && cuota.valcap.length > 10 && cuota.valcap.includes('=')) {
+            try {
+              valcapDecrypted = decrypt(cuota.valcap);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar valcap:', error);
+            }
+          }
+
+          if (typeof cuota.valint === 'string' && cuota.valint.length > 10 && cuota.valint.includes('=')) {
+            try {
+              valintDecrypted = decrypt(cuota.valint);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar valint:', error);
+            }
+          }
+
+          if (typeof cuota.valotr === 'string' && cuota.valotr.length > 10 && cuota.valotr.includes('=')) {
+            try {
+              valotrDecrypted = decrypt(cuota.valotr);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar valotr:', error);
+            }
+          }
+
+          if (typeof cuota.valcuo === 'string' && cuota.valcuo.length > 10 && cuota.valcuo.includes('=')) {
+            try {
+              valcuoDecrypted = decrypt(cuota.valcuo);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar valcuo:', error);
+            }
+          }
+
+          if (typeof cuota.salcuo === 'string' && cuota.salcuo.length > 10 && cuota.salcuo.includes('=')) {
+            try {
+              salcuoDecrypted = decrypt(cuota.salcuo);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar salcuo:', error);
+            }
+          }
+
+          return {
+            id: index + 1,
+            paymentNumber: parseInt(cuota.numcuo || 0),
+            date: formatDisplayDate(cuota.fecvnc),
+            capital: parseFloat(valcapDecrypted || 0),
+            interest: parseFloat(valintDecrypted || 0),
+            others: parseFloat(valotrDecrypted || 0),
+            paymentAmount: parseFloat(valcuoDecrypted || 0),
+            balance: parseFloat(salcuoDecrypted || 0),
+            status: getPaymentStatus(cuota.estcuo),
+            reference: `AMT-${cuota.numcuo?.padStart(3, '0')}`,
+            originalStatus: cuota.estcuo
+          };
+        });
         
         setAmortizationTable(mappedAmortization);
         
         // Actualizar información del crédito si viene en la respuesta
-        if (result.data.credito) {
-          const creditData = result.data.credito;
+        // El backend envía: cliente.credito[0], no solo credito
+        if (result.data.cliente && result.data.cliente.credito && result.data.cliente.credito.length > 0) {
+          const creditData = result.data.cliente.credito[0];
+          
+          // 🔓 Desencriptar valores del crédito
+          let codcrdDecrypted = creditData.codcrd;
+          let mntcapDecrypted = creditData.mntcap;
+          let salcapDecrypted = creditData.salcap;
+          let numsolDecrypted = creditData.numsol;
+          let nroopeDecrypted = creditData.nroope;
+          let calrsgDecrypted = creditData.calrsg;
+          
+          // Desencriptar codcrd (código de crédito)
+          if (typeof creditData.codcrd === 'string' && creditData.codcrd.length > 10 && creditData.codcrd.includes('=')) {
+            try {
+              codcrdDecrypted = decrypt(creditData.codcrd);
+              console.log(`🔓 [AMORTIZATION] Desencriptando codcrd: ${creditData.codcrd.substring(0, 20)}... -> ${codcrdDecrypted}`);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar codcrd:', error);
+            }
+          }
+          
+          // Desencriptar mntcap
+          if (typeof creditData.mntcap === 'string' && creditData.mntcap.length > 10 && creditData.mntcap.includes('=')) {
+            try {
+              mntcapDecrypted = decrypt(creditData.mntcap);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar mntcap del crédito:', error);
+            }
+          }
+          
+          // Desencriptar salcap
+          if (typeof creditData.salcap === 'string' && creditData.salcap.length > 10 && creditData.salcap.includes('=')) {
+            try {
+              salcapDecrypted = decrypt(creditData.salcap);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar salcap del crédito:', error);
+            }
+          }
+          
+          // Desencriptar numsol (número de solicitud)
+          if (typeof creditData.numsol === 'string' && creditData.numsol.length > 10 && creditData.numsol.includes('=')) {
+            try {
+              numsolDecrypted = decrypt(creditData.numsol);
+              console.log(`🔓 [AMORTIZATION] Desencriptando numsol: ${creditData.numsol.substring(0, 20)}... -> ${numsolDecrypted}`);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar numsol:', error);
+            }
+          }
+          
+          // Desencriptar nroope (número de operación)
+          if (typeof creditData.nroope === 'string' && creditData.nroope.length > 10 && creditData.nroope.includes('=')) {
+            try {
+              nroopeDecrypted = decrypt(creditData.nroope);
+              console.log(`🔓 [AMORTIZATION] Desencriptando nroope: ${creditData.nroope.substring(0, 20)}... -> ${nroopeDecrypted}`);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar nroope:', error);
+            }
+          }
+          
+          // Desencriptar calrsg (calificación de riesgo)
+          if (typeof creditData.calrsg === 'string' && creditData.calrsg.length > 10 && creditData.calrsg.includes('=')) {
+            try {
+              calrsgDecrypted = decrypt(creditData.calrsg);
+              console.log(`🔓 [AMORTIZATION] Desencriptando calrsg: ${creditData.calrsg.substring(0, 20)}... -> ${calrsgDecrypted}`);
+            } catch (error) {
+              console.error('❌ [AMORTIZATION] Error al desencriptar calrsg:', error);
+            }
+          }
+          
           setSelectedCredit(prev => ({
             ...prev,
-            originalAmount: parseFloat(creditData.mntcap || prev.originalAmount),
-            currentBalance: parseFloat(creditData.salcap || prev.currentBalance),
+            id: credit.id, // Mantener el ID encriptado original
+            codcrdDisplay: codcrdDecrypted, // Código desencriptado para mostrar
+            originalAmount: parseFloat(mntcapDecrypted || prev.originalAmount),
+            currentBalance: parseFloat(salcapDecrypted || prev.currentBalance),
             interestRate: parseFloat(creditData.tascrd || 0),
             type: creditData.destcr || prev.type,
             status: creditData.desecr || prev.status,
+            // Nuevos campos desencriptados:
+            solicitudNumero: numsolDecrypted || codcrdDecrypted, // Usar numsol o codcrd como fallback
+            operacionNumero: nroopeDecrypted || `${codcrdDecrypted}000472`, // Usar nroope o construir
+            calificacionPrevio: calrsgDecrypted || 'A1', // Usar calrsg o 'A1' como fallback
+            calificacionActual: creditData.calest || 'A RIESGO NORMAL',
             // Calcular cuota mensual promedio de las cuotas activas
             monthlyPayment: calculateAveragePayment(mappedAmortization),
             remainingPayments: countRemainingPayments(mappedAmortization)
@@ -678,21 +875,21 @@ const CreditProductForm = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Crédito:</span>
-                  <span className="text-gray-800">{selectedCredit.id}</span>
+                  <span className="text-gray-800">{selectedCredit.codcrdDisplay || selectedCredit.id}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">No. Solicitud:</span>
-                  <span className="text-gray-800">{selectedCredit.id}</span>
+                  <span className="text-gray-800">{selectedCredit.solicitudNumero || selectedCredit.codcrdDisplay || selectedCredit.id}</span>
                 </div>
 
                 {/* Tercera fila */}
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Calificación P.:</span>
-                  <span className="text-gray-800">A1</span>
+                  <span className="text-gray-800">{selectedCredit.calificacionPrevio || 'A1'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Operación:</span>
-                  <span className="text-gray-800">{selectedCredit.id}000472</span>
+                  <span className="text-gray-800">{selectedCredit.operacionNumero || `${selectedCredit.codcrdDisplay || selectedCredit.id}000472`}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Estado:</span>
@@ -708,7 +905,7 @@ const CreditProductForm = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Calificación E.:</span>
-                  <span className="text-gray-800">A RIESGO NORMAL</span>
+                  <span className="text-gray-800">{selectedCredit.calificacionActual || 'A RIESGO NORMAL'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Fecha Inicio:</span>

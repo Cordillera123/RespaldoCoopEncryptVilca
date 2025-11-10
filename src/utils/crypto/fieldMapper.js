@@ -181,11 +181,18 @@ export const FIELD_MAPPING_BY_PROCESS = {
     description: 'Listar productos financieros (Ahorros/Créditos) según prdfi',
     encryptFields: ['idecl', 'identificacion', 'cedula'],
     decryptFields: [
-      // ⚠️ NO desencriptar 'codcta' - Se necesita encriptado para otros procesos (2212, 2350, etc.)
+      // ⚠️ NO desencriptar 'codcta' ni 'codcrd' - Se necesitan encriptados para otros procesos
       'idecli',  // ID cliente desencriptado
+      // Campos de ahorros (prdfi=2):
       'saldo',   // Saldos desencriptados
       'salcnt',  // Saldo contable
-      'saldis'   // Saldo disponible
+      'saldis',  // Saldo disponible
+      // Campos de créditos (prdfi=4):
+      'mntcap',  // Monto capital
+      'salcap',  // Saldo capital
+      'tascrd',  // Tasa de crédito
+      'destcr',  // Descripción tipo crédito
+      'desecr'   // Descripción estado crédito
     ]
   },
 
@@ -215,8 +222,27 @@ export const FIELD_MAPPING_BY_PROCESS = {
 
   '2220': {
     description: 'Tabla de amortización de crédito',
-    encryptFields: ['idecl', 'identificacion', 'codcrd', 'codigocredito'],
-    decryptFields: ['codcrd', 'valor', 'saldo'] // SIN sufijo E
+    encryptFields: [
+      'idecl',          // Cédula cliente (texto plano)
+      'identificacion'  // Identificación (texto plano)
+      // ⚠️ NO encriptar 'codcrd' - Ya viene encriptado desde 2201 (con prdfi=4)
+      // El frontend debe enviar 'codcrd' tal cual lo recibió (encriptado)
+    ],
+    decryptFields: [
+      // Campos de cuotas:
+      'valcap',  // Valor capital en cuotas
+      'valint',  // Valor interés en cuotas
+      'valotr',  // Otros valores en cuotas
+      'valcuo',  // Valor de la cuota
+      'salcuo',  // Saldo de la cuota
+      // Campos del crédito:
+      'codcrd',  // Código de crédito (para mostrar desencriptado)
+      'mntcap',  // Monto capital del crédito
+      'salcap',  // Saldo capital del crédito
+      'numsol',  // Número de solicitud
+      'nroope',  // Número de operación
+      'calrsg'   // Calificación de riesgo
+    ]
   },
 
   // ========================================================================
