@@ -1,7 +1,7 @@
 import apiService from './apiService';
 
 // 🔐 IMPORTACIÓN: Sistema de encriptación
-import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
+import { encryptRequest, decryptResponse, decrypt } from '../utils/crypto/index.js';
 
 /**
  * API Service especializado para transferencias interbancarias (externas)
@@ -65,6 +65,31 @@ class ApiServiceTransferExt {
     
     // No está encriptado o es muy corto, retornar tal cual
     return idemsg;
+  }
+
+  /**
+   * 🔓 HELPER: Desencripta cédula si viene encriptada
+   * @param {string} cedula - La cédula a desencriptar
+   * @returns {string} - La cédula desencriptada o la original
+   */
+  decryptCedula(cedula) {
+    if (!cedula) return cedula;
+    
+    // Detectar si está encriptado (longitud > 15 o contiene '=' típico de Base64)
+    const possiblyEncrypted = String(cedula).length > 15 || String(cedula).includes('=');
+    
+    if (possiblyEncrypted) {
+      try {
+        const decrypted = decrypt(cedula);
+        console.log('🔓 [EXTERNAL-TRANSFER] Cédula desencriptada');
+        return decrypted;
+      } catch (err) {
+        console.warn('⚠️ [EXTERNAL-TRANSFER] No se pudo desencriptar cédula, usando original');
+        return cedula;
+      }
+    }
+    
+    return cedula;
   }
 
   /**
@@ -260,20 +285,76 @@ class ApiServiceTransferExt {
       if (accountsResult.success && result.data.cliente?.cuentas && Array.isArray(result.data.cliente.cuentas)) {
         console.log('✅ [EXTERNAL-TRANSFER] Cuentas origen obtenidas:', result.data.cliente.cuentas.length);
 
-        const processedAccounts = result.data.cliente.cuentas.map((cuenta) => ({
-          id: cuenta.codcta,
-          codigo: cuenta.codcta,
-          descripcion: cuenta.desdep,
-          estado: cuenta.desect,
-          saldoContable: parseFloat(cuenta.salcnt) || 0,
-          saldoDisponible: parseFloat(cuenta.saldis) || 0,
-          numeroFormateado: this.formatAccountNumber(cuenta.codcta),
-          saldoFormateado: this.formatCurrency(parseFloat(cuenta.saldis) || 0),
-          tipoProducto: cuenta.desdep || 'Cuenta de Ahorros',
-          isActive: cuenta.desect === 'ACTIVA',
-          hasBalance: parseFloat(cuenta.saldis) > 0,
-          _original: cuenta
-        }));
+        const processedAccounts = result.data.cliente.cuentas.map((cuenta, index) => {
+          // 🔓 Desencriptar codcta para mostrar en UI
+          let codctaDecrypted = cuenta.codcta;
+          try {
+            codctaDecrypted = decrypt(cuenta.codcta);
+            if (index === 0) {
+              console.log(`🔓 [EXTERNAL-TRANSFER] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [EXTERNAL-TRANSFER] Error al desencriptar codcta:', error);
+          }
+
+          // 🔓 Desencriptar saldos si vienen encriptados
+          let saldisDecrypted = cuenta.saldis;
+          let salcntDecrypted = cuenta.salcnt;
+
+          if (typeof cuenta.saldis === 'string' && cuenta.saldis.length > 10 && cuenta.saldis.includes('=')) {
+            try {
+              saldisDecrypted = decrypt(cuenta.saldis);
+              if (index === 0) {
+                console.log(`🔓 [EXTERNAL-TRANSFER] Desencriptando saldis: ${cuenta.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [EXTERNAL-TRANSFER] Error al desencriptar saldis:', error);
+            }
+          }
+
+          if (typeof cuenta.salcnt === 'string' && cuenta.salcnt.length > 10 && cuenta.salcnt.includes('=')) {
+            try {
+              salcntDecrypted = decrypt(cuenta.salcnt);
+              if (index === 0) {
+                console.log(`🔓 [EXTERNAL-TRANSFER] Desencriptando salcnt: ${cuenta.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [EXTERNAL-TRANSFER] Error al desencriptar salcnt:', error);
+            }
+          }
+
+          const saldoDisponible = parseFloat(saldisDecrypted) || 0;
+          const saldoContable = parseFloat(salcntDecrypted) || 0;
+
+          if (index === 0) {
+            console.log('💰 [EXTERNAL-TRANSFER] Saldos parseados:', {
+              saldoDisponible,
+              saldoContable,
+              saldisOriginal: cuenta.saldis,
+              saldisDecrypted,
+              salcntOriginal: cuenta.salcnt,
+              salcntDecrypted
+            });
+          }
+
+          return {
+            // ✅ USAR NÚMERO DESENCRIPTADO como ID (para select values)
+            id: codctaDecrypted,
+            codigo: codctaDecrypted,
+            codigoEncriptado: cuenta.codcta, // Preservar encriptado por si se necesita
+            descripcion: cuenta.desdep,
+            estado: cuenta.desect,
+            saldoContable: saldoContable,
+            saldoDisponible: saldoDisponible,
+            numeroFormateado: this.formatAccountNumber(codctaDecrypted),
+            numeroDesencriptado: codctaDecrypted,
+            saldoFormateado: this.formatCurrency(saldoDisponible),
+            tipoProducto: cuenta.desdep || 'Cuenta de Ahorros',
+            isActive: cuenta.desect === 'ACTIVA',
+            hasBalance: saldoDisponible > 0,
+            _original: cuenta
+          };
+        });
 
         const activeCuentas = processedAccounts.filter(cuenta => cuenta.isActive);
 
@@ -358,15 +439,30 @@ class ApiServiceTransferExt {
             ? (nombres[0][0] + nombres[1][0]).toUpperCase()
             : (nombres[0]?.substring(0, 2) || '??').toUpperCase();
 
+          // 🔓 Desencriptar cédula y número de cuenta
+          const cedulaDecrypted = this.decryptCedula(beneficiario.idebnf);
+          const accountDecrypted = this.decryptCedula(beneficiario.codcta); // Reutilizamos la misma función
+
+          if (index === 0) {
+            console.log('🔍 [EXTERNAL-BENEFICIARY-DEBUG] Primer beneficiario:', {
+              cedulaOriginal: beneficiario.idebnf,
+              cedulaDecrypted,
+              cuentaOriginal: beneficiario.codcta,
+              cuentaDecrypted: accountDecrypted
+            });
+          }
+
           return {
-            id: beneficiario.codcta || `external-beneficiario-${index}`,
+            id: accountDecrypted || beneficiario.codcta || `external-beneficiario-${index}`,
             name: beneficiario.nombnf || 'Nombre no disponible',
-            cedula: beneficiario.idebnf,
+            cedula: cedulaDecrypted,
+            cedulaEncrypted: beneficiario.idebnf, // Preservar original encriptado
             email: beneficiario.bnfema?.trim() || '',
             phone: beneficiario.bnfcel?.trim() || '',
             bank: beneficiario.nomifi || 'Banco no especificado',
             bankCode: beneficiario.codifi,
-            accountNumber: beneficiario.codcta,
+            accountNumber: accountDecrypted,
+            accountNumberEncrypted: beneficiario.codcta, // Preservar original encriptado
             accountType: beneficiario.destcu || 'CUENTA DE AHORRO',
             accountTypeCode: beneficiario.codtcu,
             documentType: beneficiario.codtid,
@@ -771,11 +867,11 @@ class ApiServiceTransferExt {
    */
   formatAccountNumber(accountNumber) {
     if (!accountNumber) return '';
-    const str = accountNumber.toString();
+    
+    // Formatear con guiones cada 4 dígitos: 4201-0100-4676
+    const str = accountNumber.toString().replace(/\D/g, ''); // Eliminar caracteres no numéricos
     if (str.length >= 4) {
-      const visiblePart = str.slice(-4);
-      const hiddenPart = '*'.repeat(Math.max(0, str.length - 4));
-      return `${hiddenPart}${visiblePart}`.replace(/(.{4})/g, '$1 ').trim();
+      return str.replace(/(.{4})/g, '$1-').replace(/-$/, ''); // Agregar guiones cada 4 dígitos
     }
     return str;
   }

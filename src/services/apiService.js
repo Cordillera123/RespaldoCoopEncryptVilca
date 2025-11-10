@@ -1345,7 +1345,7 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     }
 
     // PRUEBA 2: Petición a través del proxy
-    cons  .log('🧪 [DEBUG] === PRUEBA 2: Petición a través del proxy ===');
+    console.log('🧪 [DEBUG] === PRUEBA 2: Petición a través del proxy ===');
     console.log('🌐 [DEBUG] URL del proxy:', targetUrl);
 
     try {
@@ -4520,6 +4520,29 @@ formatAccountNumberForDisplay(accountNumber) {
     return accountNumber; // Ya está en texto plano
   }
 
+  /**
+   * Desencripta una cédula/RUC si está encriptada
+   * @param {string} cedula - Cédula potencialmente encriptada
+   * @returns {string} Cédula en texto plano
+   */
+  decryptCedula(cedula) {
+    if (!cedula) return '';
+    
+    // Si la cédula tiene el patrón de encriptación (contiene = o es muy larga)
+    // Las cédulas normales son de 10 dígitos, si tiene más de 15 caracteres probablemente esté encriptada
+    if (cedula.includes('=') || cedula.length > 15) {
+      try {
+        const decrypted = decrypt(cedula);
+        console.log(`🔓 [DECRYPT-CEDULA] ${cedula.substring(0, 10)}... → ${decrypted}`);
+        return decrypted;
+      } catch (error) {
+        console.error(`❌ [DECRYPT-CEDULA] Error desencriptando cédula`, error);
+        return cedula; // Devolver original si falla
+      }
+    }
+    return cedula; // Ya está en texto plano
+  }
+
   async getBeneficiaries(cedula) {
     console.log('👥 [BENEFICIARIES] Obteniendo beneficiarios para cédula:', cedula);
 
@@ -4566,7 +4589,8 @@ formatAccountNumberForDisplay(accountNumber) {
 
             // Información personal
             name: beneficiario.nombnf || 'Nombre no disponible',
-            cedula: beneficiario.idebnf,
+            cedula: this.decryptCedula(beneficiario.idebnf), // Desencriptar c�dula
+            cedulaEncrypted: beneficiario.idebnf, // Preservar original encriptado
             email: beneficiario.bnfema,
             phone: beneficiario.bnfcel?.trim() || '',
 
@@ -4719,7 +4743,8 @@ formatAccountNumberForDisplay(accountNumber) {
 
             // Información personal
             name: beneficiario.nombnf || 'Nombre no disponible',
-            cedula: beneficiario.idebnf,
+            cedula: this.decryptCedula(beneficiario.idebnf), // Desencriptar c�dula
+            cedulaEncrypted: beneficiario.idebnf, // Preservar original encriptado
             email: beneficiario.bnfema,
             phone: beneficiario.bnfcel?.trim() || '',
 
@@ -5103,7 +5128,8 @@ formatAccountNumberForDisplay(accountNumber) {
           return {
             id: beneficiario.codcta || `beneficiario-${index}`,
             name: beneficiario.nombnf || 'Nombre no disponible',
-            cedula: beneficiario.idebnf,
+            cedula: this.decryptCedula(beneficiario.idebnf), // Desencriptar cédula
+            cedulaEncrypted: beneficiario.idebnf, // Preservar original encriptado
             email: beneficiario.bnfema,
             phone: beneficiario.bnfcel?.trim() || '',
             bank: beneficiario.nomifi || 'Banco no especificado',
@@ -5541,27 +5567,82 @@ formatAccountNumberForDisplay(accountNumber) {
         console.log('✅ [INTERNAL-TRANSFER] Cuentas obtenidas exitosamente:', result.data.cliente.cuentas.length, 'cuentas');
 
         // Procesar y enriquecer los datos de las cuentas
-        const processedAccounts = result.data.cliente.cuentas.map((cuenta, index) => ({
-          // Datos originales de la API
-          id: cuenta.codcta,
-          codigo: cuenta.codcta,
-          descripcion: cuenta.desdep,
-          estado: cuenta.desect,
-          saldoContable: parseFloat(cuenta.salcnt) || 0,
-          saldoDisponible: parseFloat(cuenta.saldis) || 0,
+        const processedAccounts = result.data.cliente.cuentas.map((cuenta, index) => {
+          // 🔓 Desencriptar codcta para mostrar en UI
+          let codctaDecrypted = cuenta.codcta;
+          try {
+            codctaDecrypted = decrypt(cuenta.codcta);
+            if (index === 0) {
+              console.log(`🔓 [INTERNAL-TRANSFER] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [INTERNAL-TRANSFER] Error al desencriptar codcta:', error);
+          }
 
-          // Campos para mostrar en la UI
-          numeroFormateado: this.formatAccountNumber(cuenta.codcta),
-          saldoFormateado: this.formatCurrency(parseFloat(cuenta.saldis) || 0),
-          tipoProducto: cuenta.desdep || 'Cuenta de Ahorros',
+          // 🔓 Desencriptar saldos si vienen encriptados
+          let saldisDecrypted = cuenta.saldis;
+          let salcntDecrypted = cuenta.salcnt;
 
-          // Validaciones
-          isActive: cuenta.desect === 'ACTIVA',
-          hasBalance: parseFloat(cuenta.saldis) > 0,
+          if (typeof cuenta.saldis === 'string' && cuenta.saldis.length > 10 && cuenta.saldis.includes('=')) {
+            try {
+              saldisDecrypted = decrypt(cuenta.saldis);
+              if (index === 0) {
+                console.log(`🔓 [INTERNAL-TRANSFER] Desencriptando saldis: ${cuenta.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [INTERNAL-TRANSFER] Error al desencriptar saldis:', error);
+            }
+          }
 
-          // Datos originales para referencia
-          _original: cuenta
-        }));
+          if (typeof cuenta.salcnt === 'string' && cuenta.salcnt.length > 10 && cuenta.salcnt.includes('=')) {
+            try {
+              salcntDecrypted = decrypt(cuenta.salcnt);
+              if (index === 0) {
+                console.log(`🔓 [INTERNAL-TRANSFER] Desencriptando salcnt: ${cuenta.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [INTERNAL-TRANSFER] Error al desencriptar salcnt:', error);
+            }
+          }
+
+          const saldoDisponible = parseFloat(saldisDecrypted) || 0;
+          const saldoContable = parseFloat(salcntDecrypted) || 0;
+
+          if (index === 0) {
+            console.log('💰 [INTERNAL-TRANSFER] Saldos parseados:', {
+              saldoDisponible,
+              saldoContable,
+              saldisOriginal: cuenta.saldis,
+              saldisDecrypted,
+              salcntOriginal: cuenta.salcnt,
+              salcntDecrypted
+            });
+          }
+
+          return {
+            // ✅ USAR NÚMERO DESENCRIPTADO como ID (para select values)
+            id: codctaDecrypted,
+            codigo: codctaDecrypted,
+            codigoEncriptado: cuenta.codcta, // Preservar encriptado por si se necesita
+            descripcion: cuenta.desdep,
+            estado: cuenta.desect,
+            saldoContable: saldoContable,
+            saldoDisponible: saldoDisponible,
+
+            // Campos para mostrar en la UI
+            numeroFormateado: this.formatAccountNumber(codctaDecrypted),
+            numeroDesencriptado: codctaDecrypted,
+            saldoFormateado: this.formatCurrency(saldoDisponible),
+            tipoProducto: cuenta.desdep || 'Cuenta de Ahorros',
+
+            // Validaciones
+            isActive: cuenta.desect === 'ACTIVA',
+            hasBalance: saldoDisponible > 0,
+
+            // Datos originales para referencia
+            _original: cuenta
+          };
+        });
 
         // Filtrar solo cuentas activas para transferencias
         const activeCuentas = processedAccounts.filter(cuenta => cuenta.isActive);
@@ -6030,12 +6111,10 @@ formatAccountNumberForDisplay(accountNumber) {
   formatAccountNumber(accountNumber) {
     if (!accountNumber) return '';
 
-    // Formatear como **** **** ****1234
-    const str = accountNumber.toString();
+    // Formatear con guiones cada 4 dígitos: 4201-0100-4676
+    const str = accountNumber.toString().replace(/\D/g, ''); // Eliminar caracteres no numéricos
     if (str.length >= 4) {
-      const visiblePart = str.slice(-4);
-      const hiddenPart = '*'.repeat(Math.max(0, str.length - 4));
-      return `${hiddenPart}${visiblePart}`.replace(/(.{4})/g, '$1 ').trim();
+      return str.replace(/(.{4})/g, '$1-').replace(/-$/, ''); // Agregar guiones cada 4 dígitos
     }
     return str;
   }
