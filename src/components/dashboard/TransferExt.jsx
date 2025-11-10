@@ -875,19 +875,42 @@ const TransferExt = ({ onBack, preselectedContact = null, onShowAddAccount }) =>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Cuenta de origen
                       </label>
-                      <select
-                        name="fromAccount"
-                        value={formData.fromAccount}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-2 bg-white border rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50 transition-all duration-300 ${errors.fromAccount ? 'border-red-500' : 'border-slate-300'}`}
-                      >
-                        <option value="">Selecciona una opción</option>
-                        {accounts.map((account) => (
-                          <option key={account.codigo} value={account.codigo}>
-                            {formatAccountDisplay(account)}
-                          </option>
-                        ))}
-                      </select>
+                      
+                      {/* Mostrar campo de solo lectura cuando hay cuenta seleccionada */}
+                      {selectedFromAccount ? (
+                        <div className="relative">
+                          <div className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-800 min-h-[50px] flex items-center justify-between hover:border-sky-400 transition-colors cursor-pointer group"
+                               onClick={() => setFormData(prev => ({ ...prev, fromAccount: '' }))}
+                               title="Click para cambiar">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-slate-800">
+                                {selectedFromAccount.descripcion}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Nro. {selectedFromAccount.numeroFormateado || selectedFromAccount.numeroDesencriptado || selectedFromAccount.codigo} | Saldo {formatCurrency(selectedFromAccount.saldoDisponible)}
+                              </p>
+                            </div>
+                            <svg className="w-5 h-5 text-slate-400 group-hover:text-sky-500 transition-colors flex-shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                      ) : (
+                        <select
+                          name="fromAccount"
+                          value={formData.fromAccount}
+                          onChange={handleInputChange}
+                          className={`w-full px-4 py-2 bg-white border rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50 transition-all duration-300 ${errors.fromAccount ? 'border-red-500' : 'border-slate-300'}`}
+                        >
+                          <option value="">Selecciona una opción</option>
+                          {accounts.map((account) => (
+                            <option key={account.codigo} value={account.codigo}>
+                              {formatAccountDisplay(account)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      
                       {errors.fromAccount && (
                         <p className="text-red-500 text-sm mt-1">{errors.fromAccount}</p>
                       )}

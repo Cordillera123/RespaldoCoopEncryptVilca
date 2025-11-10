@@ -18,9 +18,10 @@
 
 // 🔐 IMPORTACIÓN: Sistema de encriptación
 import { encryptRequest, decryptResponse } from '../utils/crypto/index.js';
+import { decrypt } from '../utils/crypto/encryptionService.js';
 
 const API_CONFIG = {
-  baseUrl: '/api-l/prctrans.php', // URL con 'L' para certificados
+  baseUrl: '/api/prctrans.php', // Usar proxy /api (servidor P)
   token: '0999SolSTIC20220719',
   timeout: 15000, // 15 segundos (más tiempo para generación de PDF)
   headers: {
@@ -370,21 +371,66 @@ class ApiServiceCertificados {
         };
       }
 
-      // Formatear todas las cuentas (YA DESENCRIPTADAS por decryptResponse)
-      const cuentasFormateadas = result.data.cliente.cuentas.map(cuenta => {
-        const saldoDisp = parseFloat(cuenta.saldis) || 0;
-        const saldoCont = parseFloat(cuenta.salcnt) || 0;
+      // Formatear todas las cuentas con desencriptación manual
+      const cuentasFormateadas = result.data.cliente.cuentas.map((cuenta, index) => {
+        // 🔓 Desencriptar codcta para mostrar en UI
+        let codctaDecrypted = cuenta.codcta;
+        try {
+          codctaDecrypted = decrypt(cuenta.codcta);
+          if (index === 0) {
+            console.log(`🔓 [CERT] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+          }
+        } catch (error) {
+          console.error('❌ [CERT] Error al desencriptar codcta:', error);
+        }
+
+        // 🔓 Desencriptar saldos si vienen encriptados
+        let saldisDecrypted = cuenta.saldis;
+        let salcntDecrypted = cuenta.salcnt;
+
+        if (typeof cuenta.saldis === 'string' && cuenta.saldis.length > 10 && cuenta.saldis.includes('=')) {
+          try {
+            saldisDecrypted = decrypt(cuenta.saldis);
+            if (index === 0) {
+              console.log(`🔓 [CERT] Desencriptando saldis: ${cuenta.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [CERT] Error al desencriptar saldis:', error);
+          }
+        }
+
+        if (typeof cuenta.salcnt === 'string' && cuenta.salcnt.length > 10 && cuenta.salcnt.includes('=')) {
+          try {
+            salcntDecrypted = decrypt(cuenta.salcnt);
+            if (index === 0) {
+              console.log(`🔓 [CERT] Desencriptando salcnt: ${cuenta.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [CERT] Error al desencriptar salcnt:', error);
+          }
+        }
+
+        const saldoDisp = parseFloat(saldisDecrypted) || 0;
+        const saldoCont = parseFloat(salcntDecrypted) || 0;
+
+        if (index === 0) {
+          console.log('💰 [CERT] Saldos parseados:', {
+            saldoDisponible: saldoDisp,
+            saldoContable: saldoCont,
+            codctaDesencriptado: codctaDecrypted
+          });
+        }
 
         return {
-          codigo: cuenta.codcta, // Ya desencriptado
-          numeroCuenta: cuenta.codcta, // Ya desencriptado
+          codigo: codctaDecrypted,
+          numeroCuenta: codctaDecrypted,
           tipo: cuenta.desdep || cuenta.descri || 'Cuenta',
           tipoProducto: cuenta.desdep || cuenta.descri || 'Cuenta',
           estado: cuenta.desect || 'ACTIVA',
-          saldo: saldoDisp, // Ya desencriptado
+          saldo: saldoDisp,
           saldoDisponible: saldoDisp,
           saldoContable: saldoCont,
-          numero: cuenta.codcta // Ya desencriptado
+          numero: codctaDecrypted
         };
       });
 
@@ -470,8 +516,19 @@ class ApiServiceCertificados {
         };
       }
 
-      // Extraer códigos de cuentas válidas (YA DESENCRIPTADAS)
-      const codigosCuentasValidas = result2374.data.listado.map(cuenta => cuenta.codcta);
+      // Extraer códigos de cuentas válidas y desencriptarlos
+      const codigosCuentasValidas = result2374.data.listado.map((cuenta, index) => {
+        let codctaDecrypted = cuenta.codcta;
+        try {
+          codctaDecrypted = decrypt(cuenta.codcta);
+          if (index === 0) {
+            console.log(`🔓 [CERT] Desencriptando codcta del proceso 2374: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+          }
+        } catch (error) {
+          console.error('❌ [CERT] Error al desencriptar codcta del proceso 2374:', error);
+        }
+        return codctaDecrypted;
+      });
       console.log('✅ [CERT] Códigos de cuentas con saldo suficiente:', codigosCuentasValidas);
 
       if (codigosCuentasValidas.length === 0) {
@@ -511,25 +568,79 @@ class ApiServiceCertificados {
         };
       }
 
-      // PASO 3: Filtrar y combinar datos (YA DESENCRIPTADOS)
+      // PASO 3: Filtrar y combinar datos con desencriptación manual
       console.log('🔄 [CERT] PASO 3: Filtrando y combinando datos...');
       
       const cuentasConDetalles = result2300.data.cliente.cuentas
-        .filter(cuenta => codigosCuentasValidas.includes(cuenta.codcta))
-        .map(cuenta => {
-          const saldoDisp = parseFloat(cuenta.saldis) || 0;
-          const saldoCont = parseFloat(cuenta.salcnt) || 0;
+        .filter(cuenta => {
+          // Intentar desencriptar codcta para comparar
+          let codctaDecrypted = cuenta.codcta;
+          try {
+            codctaDecrypted = decrypt(cuenta.codcta);
+          } catch (error) {
+            console.error('❌ [CERT] Error al desencriptar codcta en filtro:', error);
+          }
+          return codigosCuentasValidas.includes(codctaDecrypted);
+        })
+        .map((cuenta, index) => {
+          // 🔓 Desencriptar codcta para mostrar en UI
+          let codctaDecrypted = cuenta.codcta;
+          try {
+            codctaDecrypted = decrypt(cuenta.codcta);
+            if (index === 0) {
+              console.log(`🔓 [CERT] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [CERT] Error al desencriptar codcta:', error);
+          }
+
+          // 🔓 Desencriptar saldos si vienen encriptados
+          let saldisDecrypted = cuenta.saldis;
+          let salcntDecrypted = cuenta.salcnt;
+
+          if (typeof cuenta.saldis === 'string' && cuenta.saldis.length > 10 && cuenta.saldis.includes('=')) {
+            try {
+              saldisDecrypted = decrypt(cuenta.saldis);
+              if (index === 0) {
+                console.log(`🔓 [CERT] Desencriptando saldis: ${cuenta.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CERT] Error al desencriptar saldis:', error);
+            }
+          }
+
+          if (typeof cuenta.salcnt === 'string' && cuenta.salcnt.length > 10 && cuenta.salcnt.includes('=')) {
+            try {
+              salcntDecrypted = decrypt(cuenta.salcnt);
+              if (index === 0) {
+                console.log(`🔓 [CERT] Desencriptando salcnt: ${cuenta.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CERT] Error al desencriptar salcnt:', error);
+            }
+          }
+
+          const saldoDisp = parseFloat(saldisDecrypted) || 0;
+          const saldoCont = parseFloat(salcntDecrypted) || 0;
+
+          if (index === 0) {
+            console.log('💰 [CERT] Saldos parseados:', {
+              saldoDisponible: saldoDisp,
+              saldoContable: saldoCont,
+              codctaDesencriptado: codctaDecrypted
+            });
+          }
 
           return {
-            codigo: cuenta.codcta, // Ya desencriptado
-            numeroCuenta: cuenta.codcta,
+            codigo: codctaDecrypted,
+            numeroCuenta: codctaDecrypted,
             tipo: cuenta.desdep || cuenta.descri || 'Cuenta',
             tipoProducto: cuenta.desdep || cuenta.descri,
             estado: cuenta.desect || 'ACTIVA',
             saldo: saldoDisp,
             saldoDisponible: saldoDisp,
             saldoContable: saldoCont,
-            numero: cuenta.codcta
+            numero: codctaDecrypted
           };
         });
 
