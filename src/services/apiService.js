@@ -3618,30 +3618,87 @@ async registerInvestment(investmentData) {
         console.log('✅ [INVESTMENTS] Inversiones obtenidas exitosamente:', result.data.cliente.inversiones.length, 'inversiones');
 
         // Procesar y enriquecer los datos de inversiones
-        // En el procesamiento de inversiones, asegurar campos correctos
-        const processedInvestments = result.data.cliente.inversiones.map(inversion => ({
-          // Datos originales de la API
-          id: inversion.codinv,
-          code: inversion.codinv,
-          maturityDate: inversion.fecvnc,
-          status: inversion.desein,
-          type: inversion.destin,
-          amount: parseFloat(inversion.salcnt) || 0,
-          availableBalance: parseFloat(inversion.saldis) || 0,
+        const processedInvestments = result.data.cliente.inversiones.map((inversion, index) => {
+          // 🔓 Desencriptar campos monetarios si vienen encriptados
+          let salcntDecrypted = inversion.salcnt;
+          let saldisDecrypted = inversion.saldis;
+          let codinvDecrypted = inversion.codinv;
 
-          // USAR TASA REAL DE LA API (no estimada)
-          interestRate: parseFloat(inversion.tasinv) || 8.5, // Campo real: tasinv
+          // Detectar y desencriptar salcnt (saldo contable)
+          if (typeof inversion.salcnt === 'string' && inversion.salcnt.length > 10 && inversion.salcnt.includes('=')) {
+            try {
+              salcntDecrypted = decrypt(inversion.salcnt);
+              if (index === 0) {
+                console.log(`🔓 [INVESTMENTS] Desencriptando salcnt: ${inversion.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [INVESTMENTS] Error al desencriptar salcnt:', error);
+            }
+          }
 
-          // Campos calculados
-          currency: 'USD',
-          investmentNumber: this.formatInvestmentNumber(inversion.codinv),
-          startDate: inversion.fecini, // Usar fecha real de inicio
-          term: this.calculateTermFromDates(inversion.fecini, inversion.fecvnc), // Calcular término real
-          paymentType: this.getPaymentType(inversion.destin),
+          // Detectar y desencriptar saldis (saldo disponible)
+          if (typeof inversion.saldis === 'string' && inversion.saldis.length > 10 && inversion.saldis.includes('=')) {
+            try {
+              saldisDecrypted = decrypt(inversion.saldis);
+              if (index === 0) {
+                console.log(`🔓 [INVESTMENTS] Desencriptando saldis: ${inversion.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [INVESTMENTS] Error al desencriptar saldis:', error);
+            }
+          }
 
-          // Datos originales completos para referencia
-          _original: inversion
-        }));
+          // Detectar y desencriptar codinv (código de inversión)
+          if (typeof inversion.codinv === 'string' && inversion.codinv.length > 10 && inversion.codinv.includes('=')) {
+            try {
+              codinvDecrypted = decrypt(inversion.codinv);
+              if (index === 0) {
+                console.log(`🔓 [INVESTMENTS] Desencriptando codinv: ${inversion.codinv.substring(0, 20)}... -> ${codinvDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [INVESTMENTS] Error al desencriptar codinv:', error);
+            }
+          }
+
+          const amount = parseFloat(salcntDecrypted) || 0;
+          const availableBalance = parseFloat(saldisDecrypted) || 0;
+
+          if (index === 0) {
+            console.log('💰 [INVESTMENTS] Montos procesados:', {
+              salcntOriginal: inversion.salcnt,
+              salcntDecrypted,
+              saldisOriginal: inversion.saldis,
+              saldisDecrypted,
+              amount,
+              availableBalance
+            });
+          }
+
+          return {
+            // Datos originales de la API
+            id: inversion.codinv,
+            code: inversion.codinv,
+            maturityDate: inversion.fecvnc,
+            status: inversion.desein,
+            type: inversion.destin,
+            amount,
+            availableBalance,
+
+            // USAR TASA REAL DE LA API (no estimada)
+            interestRate: parseFloat(inversion.tasinv) || 8.5, // Campo real: tasinv
+
+            // Campos calculados (usar versión desencriptada)
+            currency: 'USD',
+            investmentNumber: this.formatInvestmentNumber(codinvDecrypted),
+            startDate: inversion.fecini, // Usar fecha real de inicio
+            term: this.calculateTermFromDates(inversion.fecini, inversion.fecvnc), // Calcular término real
+            paymentType: this.getPaymentType(inversion.destin),
+
+            // Datos originales completos para referencia
+            _original: inversion,
+            _codinvDecrypted: codinvDecrypted // Para debug
+          };
+        });
 
         return {
           success: true,
@@ -4185,25 +4242,130 @@ async getCurrentUserInvestmentParameters() {
         console.log('👤 [INVESTMENT-DETAIL] Cliente:', cliente.nomcli, cliente.apecli);
         console.log('💰 [INVESTMENT-DETAIL] Inversión:', inversion.destin);
         console.log('📊 [INVESTMENT-DETAIL] Movimientos:', movimientos.length);
+        console.log('🔍 [INVESTMENT-DETAIL] Objeto inversión COMPLETO:', JSON.stringify(inversion, null, 2));
+
+        // 🔓 Desencriptar campos monetarios de inversión si vienen encriptados
+        let salcntDecrypted = inversion.salcnt;
+        let saldisDecrypted = inversion.saldis;
+        let codinvDecrypted = inversion.codinv;
+        let tasinvDecrypted = inversion.tasinv;
+
+        console.log('🔍 [INVESTMENT-DETAIL] Valores ANTES de desencriptar:', {
+          salcnt: inversion.salcnt,
+          salcntType: typeof inversion.salcnt,
+          salcntLength: inversion.salcnt?.length,
+          saldis: inversion.saldis,
+          saldisType: typeof inversion.saldis,
+          saldisLength: inversion.saldis?.length,
+          codinv: inversion.codinv,
+          codinvType: typeof inversion.codinv,
+          tasinv: inversion.tasinv,
+          tasinvType: typeof inversion.tasinv
+        });
+
+        // Detectar y desencriptar salcnt (saldo contable)
+        if (typeof inversion.salcnt === 'string' && inversion.salcnt.length > 10 && inversion.salcnt.includes('=')) {
+          try {
+            salcntDecrypted = decrypt(inversion.salcnt);
+            console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando salcnt: ${inversion.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+          } catch (error) {
+            console.error('❌ [INVESTMENT-DETAIL] Error al desencriptar salcnt:', error);
+          }
+        }
+
+        // Detectar y desencriptar saldis (saldo disponible)
+        if (typeof inversion.saldis === 'string' && inversion.saldis.length > 10 && inversion.saldis.includes('=')) {
+          try {
+            saldisDecrypted = decrypt(inversion.saldis);
+            console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando saldis: ${inversion.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+          } catch (error) {
+            console.error('❌ [INVESTMENT-DETAIL] Error al desencriptar saldis:', error);
+          }
+        }
+
+        // Detectar y desencriptar codinv (código inversión)
+        if (typeof inversion.codinv === 'string' && inversion.codinv.length > 10 && inversion.codinv.includes('=')) {
+          try {
+            codinvDecrypted = decrypt(inversion.codinv);
+            console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando codinv: ${inversion.codinv.substring(0, 20)}... -> ${codinvDecrypted}`);
+          } catch (error) {
+            console.error('❌ [INVESTMENT-DETAIL] Error al desencriptar codinv:', error);
+          }
+        }
+
+        // Detectar y desencriptar tasinv (tasa de inversión)
+        if (typeof inversion.tasinv === 'string' && inversion.tasinv.length > 10 && inversion.tasinv.includes('=')) {
+          try {
+            tasinvDecrypted = decrypt(inversion.tasinv);
+            console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando tasinv: ${inversion.tasinv.substring(0, 20)}... -> ${tasinvDecrypted}`);
+          } catch (error) {
+            console.error('❌ [INVESTMENT-DETAIL] Error al desencriptar tasinv:', error);
+          }
+        }
+
+        console.log('💰 [INVESTMENT-DETAIL] Valores desencriptados:', {
+          salcntOriginal: inversion.salcnt,
+          salcntDecrypted,
+          saldisOriginal: inversion.saldis,
+          saldisDecrypted,
+          codinvOriginal: inversion.codinv,
+          codinvDecrypted,
+          tasinvOriginal: inversion.tasinv,
+          tasinvDecrypted
+        });
 
         // Procesar los movimientos del detalle según la respuesta real del API
-        const processedMovements = movimientos.map((mov, index) => ({
-          id: index + 1,
-          fecha: mov.fectrn,
-          fechaFormateada: mov.fecstr || this.formatDateForDisplay(mov.fectrn),
-          descripcion: mov.dettrn || 'Movimiento de inversión',
-          numeroDocumento: mov.docnum,
-          codigoCaja: mov.codcaj,
-          tipoTransaccion: mov.tiptrn || 'N/A',
-          valorCredito: parseFloat(mov.valcre) || 0,
-          valorDebito: parseFloat(mov.valdeb) || 0,
-          saldo: parseFloat(mov.saldos) || 0,
-          monto: parseFloat(mov.valcre) - parseFloat(mov.valdeb),
-          tipo: parseFloat(mov.valcre) > 0 ? 'credito' : 'debito',
-          esGanancia: parseFloat(mov.valcre) > 0,
-          // Datos originales para referencia
-          _original: mov
-        }));
+        const processedMovements = movimientos.map((mov, index) => {
+          // 🔓 Desencriptar valores monetarios de movimientos
+          let valcreDecrypted = mov.valcre;
+          let valdebDecrypted = mov.valdeb;
+          let saldosDecrypted = mov.saldos;
+
+          // Desencriptar valcre (valor crédito)
+          if (typeof mov.valcre === 'string' && mov.valcre.length > 10 && mov.valcre.includes('=')) {
+            try {
+              valcreDecrypted = decrypt(mov.valcre);
+            } catch (error) {
+              console.error('❌ [MOVEMENT] Error al desencriptar valcre:', error);
+            }
+          }
+
+          // Desencriptar valdeb (valor débito)
+          if (typeof mov.valdeb === 'string' && mov.valdeb.length > 10 && mov.valdeb.includes('=')) {
+            try {
+              valdebDecrypted = decrypt(mov.valdeb);
+            } catch (error) {
+              console.error('❌ [MOVEMENT] Error al desencriptar valdeb:', error);
+            }
+          }
+
+          // Desencriptar saldos
+          if (typeof mov.saldos === 'string' && mov.saldos.length > 10 && mov.saldos.includes('=')) {
+            try {
+              saldosDecrypted = decrypt(mov.saldos);
+            } catch (error) {
+              console.error('❌ [MOVEMENT] Error al desencriptar saldos:', error);
+            }
+          }
+
+          return {
+            id: index + 1,
+            fecha: mov.fectrn,
+            fechaFormateada: mov.fecstr || this.formatDateForDisplay(mov.fectrn),
+            descripcion: mov.dettrn || 'Movimiento de inversión',
+            numeroDocumento: mov.docnum,
+            codigoCaja: mov.codcaj,
+            tipoTransaccion: mov.tiptrn || 'N/A',
+            valorCredito: parseFloat(valcreDecrypted) || 0,
+            valorDebito: parseFloat(valdebDecrypted) || 0,
+            saldo: parseFloat(saldosDecrypted) || 0,
+            monto: parseFloat(valcreDecrypted) - parseFloat(valdebDecrypted),
+            tipo: parseFloat(valcreDecrypted) > 0 ? 'credito' : 'debito',
+            esGanancia: parseFloat(valcreDecrypted) > 0,
+            // Datos originales para referencia
+            _original: mov
+          };
+        });
 
         // Calcular estadísticas del periodo
         const estadisticas = {
@@ -4216,22 +4378,22 @@ async getCurrentUserInvestmentParameters() {
             .reduce((sum, m) => sum + m.valorCredito, 0)
         };
 
-        // Formatear información de la inversión
+        // Formatear información de la inversión (usando valores desencriptados)
         const inversionInfo = {
-          codigo: inversion.codinv,
+          codigo: codinvDecrypted,
           estado: inversion.desein,
           tipoInversion: inversion.destin,
-          saldoContable: parseFloat(inversion.salcnt) || 0,
-          saldoDisponible: parseFloat(inversion.saldis) || 0,
-          tasaInteres: parseFloat(inversion.tasinv) || 0,
+          saldoContable: parseFloat(salcntDecrypted) || 0,
+          saldoDisponible: parseFloat(saldisDecrypted) || 0,
+          tasaInteres: parseFloat(tasinvDecrypted) || 0,
           fechaInicio: inversion.fecini,
           diasPlazo: parseInt(inversion.diaplz) || 0,
           fechaVencimiento: inversion.fecven,
           // Campos adicionales calculados
-          montoInicial: parseFloat(inversion.salcnt) || 0,
+          montoInicial: parseFloat(salcntDecrypted) || 0,
           rendimientoEsperado: this.calcularRendimientoEsperado(
-            parseFloat(inversion.salcnt) || 0,
-            parseFloat(inversion.tasinv) || 0,
+            parseFloat(salcntDecrypted) || 0,
+            parseFloat(tasinvDecrypted) || 0,
             parseInt(inversion.diaplz) || 0
           )
         };
@@ -4379,21 +4541,36 @@ async getAccountsForInvestment(cedula, valorInversion) {
      console.log('✅ [INVESTMENT-ACCOUNTS] Cuentas obtenidas exitosamente:', result.data.listado.length, 'cuentas');
 
      // Procesar y enriquecer los datos de las cuentas
-     const processedAccounts = result.data.listado.map((cuenta, index) => ({
-       // Datos originales de la API
-       id: cuenta.codcta,
-       codigo: cuenta.codcta,
-       descripcion: cuenta.descri,
-       estado: cuenta.desect,
+     const processedAccounts = result.data.listado.map((cuenta, index) => {
+       // 🔓 Desencriptar codcta para mostrar en UI (pero mantener versión encriptada para APIs)
+       let codctaDecrypted = cuenta.codcta;
+       try {
+         codctaDecrypted = decrypt(cuenta.codcta);
+         if (index === 0) {
+           console.log(`🔓 [INVESTMENT-ACCOUNTS] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+         }
+       } catch (error) {
+         console.error('❌ [INVESTMENT-ACCOUNTS] Error al desencriptar codcta:', error);
+         // Si falla la desencriptación, usar el valor original
+       }
 
-       // Campos para mostrar en la UI
-       numeroFormateado: this.formatAccountNumberForDisplay(cuenta.codcta),
-       tipoProducto: cuenta.descri || 'Cuenta de Ahorros',
-       isActive: cuenta.desect === 'ACTIVA',
+       return {
+         // Datos originales de la API (ENCRIPTADO - para enviar a otras APIs)
+         id: cuenta.codcta,
+         codigo: cuenta.codcta, // ⚠️ MANTENER ENCRIPTADO para proceso 2375
+         descripcion: cuenta.descri,
+         estado: cuenta.desect,
 
-       // Datos originales para referencia
-       _original: cuenta
-     }));
+         // Campos para mostrar en la UI (DESENCRIPTADO)
+         numeroFormateado: this.formatAccountNumberForDisplay(codctaDecrypted),
+         tipoProducto: cuenta.descri || 'Cuenta de Ahorros',
+         isActive: cuenta.desect === 'ACTIVA',
+
+         // Datos originales para referencia
+         _original: cuenta,
+         _codctaDecrypted: codctaDecrypted // Para debug
+       };
+     });
 
      // Filtrar solo cuentas activas
      const activeCuentas = processedAccounts.filter(cuenta => cuenta.isActive);

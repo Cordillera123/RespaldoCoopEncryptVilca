@@ -471,7 +471,18 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2374': {
     description: 'Listar cuentas (para inversión o certificados)',
     encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto', 'vlr'],
-    decryptFields: ['codcta', 'saldo', 'sldcta', 'valor', 'vlr', 'monto', 'salcnt', 'saldis', 'salcap', 'valinver'] // SIN sufijo E
+    decryptFields: [
+      // ⚠️ NO desencriptar 'codcta' - Se necesita encriptado para proceso 2375 (registro inversión)
+      'saldo',    // Saldos desencriptados
+      'sldcta',   // Saldo cuenta
+      'valor',    // Valores monetarios
+      'vlr', 
+      'monto', 
+      'salcnt',   // Saldo contable
+      'saldis',   // Saldo disponible
+      'salcap',   // Saldo capital
+      'valinver'  // Valor inversión
+    ]
   },
 
   '2375': {
@@ -479,16 +490,15 @@ export const FIELD_MAPPING_BY_PROCESS = {
     encryptFields: [
       'identificacion',
       'idecl',
-      'codctadp',  // Cuenta a debitar
-      'codcta',    // Cuenta genérica
-      'cuenta',    // Cuenta genérica
+      // ⚠️ NO encriptar 'codctadp' - Ya viene encriptado desde proceso 2374
+      // El frontend debe enviar 'codctadp' tal cual lo recibió (encriptado)
       'valinver',  // Valor de inversión
       'monto',     // Alias de valor (por si acaso)
       'valor',     // Alias alternativo
       'vlr',       // Valor abreviado
       'montoinv'   // Monto inversión
     ],
-    decryptFields: ['valinver', 'monto', 'montoinv', 'valor', 'vlr', 'codcta', 'codctadp', 'interes'] // SIN sufijo E
+    decryptFields: ['valinver', 'monto', 'montoinv', 'valor', 'vlr', 'interes'] // SIN sufijo E
   },
 
   // ========================================================================
