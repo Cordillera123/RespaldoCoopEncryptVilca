@@ -1,6 +1,7 @@
 // src/components/CodigoPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../services/apiService.js';
+import { decrypt } from '../utils/crypto/encryptionService.js'; // Importar función decrypt
 import backgroundImage from "/public/assets/images/onu.jpg";
 
 
@@ -281,11 +282,25 @@ const requestSecurityCode = async () => {
   // Enmascarar número de teléfono
   const maskPhoneNumber = (phone) => {
     if (!phone) return '***';
-    const str = phone.toString();
-    if (str.length >= 4) {
-      return str.slice(0, -4).replace(/./g, '*') + str.slice(-4);
+    
+    let phoneNumber = phone.toString();
+    
+    // 🔓 Desencriptar si está encriptado (contiene '==' que es típico de Base64)
+    if (phoneNumber.includes('==') || phoneNumber.includes('+') || phoneNumber.includes('/')) {
+      try {
+        console.log('🔓 [CODE] Desencriptando número de teléfono encriptado');
+        phoneNumber = decrypt(phoneNumber);
+        console.log('✅ [CODE] Número desencriptado correctamente');
+      } catch (error) {
+        console.warn('⚠️ [CODE] Error desencriptando teléfono, usando valor original:', error);
+      }
     }
-    return str;
+    
+    // Enmascarar: mostrar solo los últimos 4 dígitos
+    if (phoneNumber.length >= 4) {
+      return phoneNumber.slice(0, -4).replace(/./g, '*') + phoneNumber.slice(-4);
+    }
+    return phoneNumber;
   };
 
   // Reintentar proceso

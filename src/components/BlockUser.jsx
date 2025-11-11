@@ -29,7 +29,9 @@ const BlockUser = ({ onBackToLogin }) => {
   });
   
   const [userInfo, setUserInfo] = useState(null);
-  const [securityQuestion, setSecurityQuestion] = useState(null);
+  const [securityQuestions, setSecurityQuestions] = useState([]); // Array de todas las preguntas
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Índice de pregunta actual
+  const [securityQuestion, setSecurityQuestion] = useState(null); // Pregunta actual mostrada
   const [isLoading, setIsLoading] = useState(false);
   const [alert, setAlert] = useState(null);
   const [isAnimated, setIsAnimated] = useState(false);
@@ -74,6 +76,8 @@ const BlockUser = ({ onBackToLogin }) => {
         // Resetear estados si la cédula es muy corta
         setCedulaValidated(false);
         setUserInfo(null);
+        setSecurityQuestions([]); // Limpiar array de preguntas
+        setCurrentQuestionIndex(0); // Resetear índice
         setSecurityQuestion(null);
         setAlert(null);
       }
@@ -119,25 +123,54 @@ const BlockUser = ({ onBackToLogin }) => {
 
   // Obtener pregunta de seguridad en tiempo real
   const getSecurityQuestionRealTime = async (cedula) => {
-    console.log('🔒 [BLOCK] Obteniendo pregunta de seguridad automáticamente para:', cedula);
+    console.log('🔒 [BLOCK] Obteniendo preguntas de seguridad automáticamente para:', cedula);
     
     try {
       const result = await apiService.getSecurityQuestion(cedula);
       
       if (result.success && result.questions && result.questions.length > 0) {
-        // Seleccionar pregunta aleatoria
-        const randomQuestion = result.questions[Math.floor(Math.random() * result.questions.length)];
-        console.log('📝 [BLOCK] Pregunta seleccionada automáticamente:', randomQuestion);
+        console.log('📝 [BLOCK] Preguntas obtenidas:', result.questions.length);
         
-        setSecurityQuestion(randomQuestion);
+        // Guardar TODAS las preguntas
+        setSecurityQuestions(result.questions);
+        
+        // Seleccionar la primera pregunta por defecto
+        setCurrentQuestionIndex(0);
+        setSecurityQuestion(result.questions[0]);
+        
+        console.log('✅ [BLOCK] Primera pregunta seleccionada:', result.questions[0]);
       } else {
-        console.log('❌ [BLOCK] Error obteniendo pregunta automáticamente:', result.error);
+        console.log('❌ [BLOCK] Error obteniendo preguntas automáticamente:', result.error);
+        setSecurityQuestions([]);
+        setSecurityQuestion(null);
         showAlert('No se pudo obtener la pregunta de seguridad', 'error');
       }
     } catch (error) {
-      console.error('💥 [BLOCK] Error obteniendo pregunta automáticamente:', error);
+      console.error('💥 [BLOCK] Error obteniendo preguntas automáticamente:', error);
+      setSecurityQuestions([]);
+      setSecurityQuestion(null);
       showAlert('Error obteniendo pregunta de seguridad', 'error');
     }
+  };
+
+  // Cambiar a la siguiente pregunta (ciclo)
+  const handleChangeQuestion = () => {
+    if (securityQuestions.length <= 1) return;
+    
+    const nextIndex = (currentQuestionIndex + 1) % securityQuestions.length;
+    console.log('🔄 [BLOCK] Cambiando a pregunta:', nextIndex + 1, 'de', securityQuestions.length);
+    
+    setCurrentQuestionIndex(nextIndex);
+    setSecurityQuestion(securityQuestions[nextIndex]);
+    
+    // Limpiar la respuesta anterior
+    setFormData(prev => ({
+      ...prev,
+      respuesta: ''
+    }));
+    
+    // Limpiar alertas
+    setAlert(null);
   };
 
   // Validar respuesta y proceder al bloqueo
@@ -386,12 +419,30 @@ const BlockUser = ({ onBackToLogin }) => {
                 </div>
               )}
 
-              {/* Campo de pregunta de seguridad - ESTILO ACTUALIZADO COMO LOGINPAGE */}
+              {/* Campo de pregunta de seguridad - CON CAMBIO DE PREGUNTA */}
               {cedulaValidated && securityQuestion && (
-                <div className="space-y-1">
-                  <label htmlFor="respuesta" className="block text-xs font-bold text-slate-700 tracking-wide uppercase">
-                    {securityQuestion.detprg}
-                  </label>
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <label htmlFor="respuesta" className="block text-xs font-bold text-slate-700 tracking-wide uppercase flex-1">
+                      {securityQuestion.detprg || securityQuestion.desprg}
+                    </label>
+                    
+                    {/* Botón de cambio de pregunta - Solo si hay más de una pregunta */}
+                    {securityQuestions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleChangeQuestion}
+                        className="ml-3 flex items-center space-x-1 px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 hover:border-cyan-300 rounded-lg transition-all duration-200 text-cyan-700 hover:text-cyan-800 font-medium text-xs shadow-sm hover:shadow"
+                        title="Cambiar pregunta de seguridad"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z" />
+                        </svg>
+                        <span>Cambiar ({currentQuestionIndex + 1}/{securityQuestions.length})</span>
+                      </button>
+                    )}
+                  </div>
+                  
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <svg className="h-4 w-4 text-slate-500 group-focus-within:text-cyan-600 transition-colors duration-300" viewBox="0 0 24 24" fill="currentColor">
@@ -409,6 +460,16 @@ const BlockUser = ({ onBackToLogin }) => {
                       className="block w-full pl-10 pr-3 py-3 border-2 rounded-lg bg-white text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm hover:shadow-md border-slate-300 hover:border-slate-400"
                     />
                   </div>
+                  
+                  {/* Mensaje informativo - Solo si hay más de una pregunta */}
+                  {securityQuestions.length > 1 && (
+                    <p className="text-cyan-600 text-xs flex items-center space-x-1">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" />
+                      </svg>
+                      <span>Tiene {securityQuestions.length} preguntas de seguridad registradas. Puede cambiar entre ellas.</span>
+                    </p>
+                  )}
                 </div>
               )}
 
