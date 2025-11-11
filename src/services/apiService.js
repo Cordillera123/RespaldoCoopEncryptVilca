@@ -384,11 +384,37 @@ class ApiService {
       
       console.log('✅ [API] Datos parseados correctamente:', result);
       
-      // 🔓 DESENCRIPTAR RESPUESTA DEL BACKEND
+      // � LOG RAW PARA PROCESO 2213 (INVESTMENT_DETAIL) - ANTES DE DESENCRIPTAR
+      if (data.prccode === '2213') {
+        console.log('🔍 [INVESTMENT-RAW] ===== DATOS RAW DEL SERVIDOR (ANTES DE AUTO-DECRYPT) =====');
+        console.log('🔍 [INVESTMENT-RAW] cliente.inversion:', result.cliente?.inversion);
+        console.log('🔍 [INVESTMENT-RAW] - codinv:', result.cliente?.inversion?.codinv);
+        console.log('🔍 [INVESTMENT-RAW] - fecini:', result.cliente?.inversion?.fecini);
+        console.log('🔍 [INVESTMENT-RAW] - fecven:', result.cliente?.inversion?.fecven);
+        console.log('🔍 [INVESTMENT-RAW] - salcnt:', result.cliente?.inversion?.salcnt);
+        console.log('🔍 [INVESTMENT-RAW] - saldis:', result.cliente?.inversion?.saldis);
+        console.log('🔍 [INVESTMENT-RAW] - tasinv:', result.cliente?.inversion?.tasinv);
+        console.log('🔍 [INVESTMENT-RAW] ========================================');
+      }
+      
+      // �🔓 DESENCRIPTAR RESPUESTA DEL BACKEND
       let decryptedResult = result;
       try {
         decryptedResult = decryptResponse(result, data.prccode);
         console.log('🔓 [API] Datos desencriptados aplicados');
+        
+        // 🔍 LOG DESPUÉS DE AUTO-DECRYPT PARA 2213
+        if (data.prccode === '2213') {
+          console.log('🔍 [INVESTMENT-DECRYPTED] ===== DATOS DESPUÉS DE AUTO-DECRYPT =====');
+          console.log('🔍 [INVESTMENT-DECRYPTED] cliente.inversion:', decryptedResult.cliente?.inversion);
+          console.log('🔍 [INVESTMENT-DECRYPTED] - codinv:', decryptedResult.cliente?.inversion?.codinv);
+          console.log('🔍 [INVESTMENT-DECRYPTED] - fecini:', decryptedResult.cliente?.inversion?.fecini);
+          console.log('🔍 [INVESTMENT-DECRYPTED] - fecven:', decryptedResult.cliente?.inversion?.fecven);
+          console.log('🔍 [INVESTMENT-DECRYPTED] - salcnt:', decryptedResult.cliente?.inversion?.salcnt);
+          console.log('🔍 [INVESTMENT-DECRYPTED] - saldis:', decryptedResult.cliente?.inversion?.saldis);
+          console.log('🔍 [INVESTMENT-DECRYPTED] - tasinv:', decryptedResult.cliente?.inversion?.tasinv);
+          console.log('🔍 [INVESTMENT-DECRYPTED] ========================================');
+        }
       } catch (decryptError) {
         console.warn('⚠️ [API] Error al desencriptar, usando datos sin desencriptar:', decryptError.message);
       }
@@ -810,6 +836,16 @@ class ApiService {
 
       if (creditsResult.success && result.data.cliente?.creditos && Array.isArray(result.data.cliente.creditos)) {
         console.log('✅ [CREDITS] Créditos obtenidos exitosamente:', result.data.cliente.creditos.length, 'créditos');
+        
+        // 🔍 DEBUG: Ver primer crédito COMPLETO
+        if (result.data.cliente.creditos.length > 0) {
+          const firstCredit = result.data.cliente.creditos[0];
+          console.log('🔍 [CREDITS-API] Primer crédito COMPLETO:', JSON.stringify(firstCredit, null, 2));
+          console.log('🔍 [CREDITS-API] Campo codcrd:', firstCredit.codcrd, 'Type:', typeof firstCredit.codcrd);
+          console.log('🔍 [CREDITS-API] Campo mntcap:', firstCredit.mntcap, 'Type:', typeof firstCredit.mntcap);
+          console.log('🔍 [CREDITS-API] Campo salcap:', firstCredit.salcap, 'Type:', typeof firstCredit.salcap);
+          console.log('🔍 [CREDITS-API] Todos los campos disponibles:', Object.keys(firstCredit).join(', '));
+        }
 
         return {
           success: true,
@@ -4263,6 +4299,17 @@ async getCurrentUserInvestmentParameters() {
         console.log('💰 [INVESTMENT-DETAIL] Inversión:', inversion.destin);
         console.log('📊 [INVESTMENT-DETAIL] Movimientos:', movimientos.length);
         console.log('🔍 [INVESTMENT-DETAIL] Objeto inversión COMPLETO:', JSON.stringify(inversion, null, 2));
+        
+        // 📅 LOG ESPECÍFICO PARA FECHAS
+        console.log('📅 [INVESTMENT-DETAIL] ANÁLISIS DE FECHAS:');
+        console.log('  - fecini RAW:', inversion.fecini);
+        console.log('  - fecini TIPO:', typeof inversion.fecini);
+        console.log('  - fecini LENGTH:', inversion.fecini?.length);
+        console.log('  - fecini CHAR CODES:', inversion.fecini?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - fecven RAW:', inversion.fecven);
+        console.log('  - fecven TIPO:', typeof inversion.fecven);
+        console.log('  - fecven LENGTH:', inversion.fecven?.length);
+        console.log('  - fecven CHAR CODES:', inversion.fecven?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
 
         // 🔓 Desencriptar campos monetarios de inversión si vienen encriptados
         let salcntDecrypted = inversion.salcnt;
@@ -4281,6 +4328,17 @@ async getCurrentUserInvestmentParameters() {
           codinvType: typeof inversion.codinv,
           tasinv: inversion.tasinv,
           tasinvType: typeof inversion.tasinv
+        });
+        
+        // 💰 LOG ESPECÍFICO PARA VALORES NUMÉRICOS (DETECTAR "O" vs "0")
+        console.log('💰 [INVESTMENT-DETAIL] ANÁLISIS DE VALORES NUMÉRICOS:');
+        console.log('  - salcnt CHAR CODES:', inversion.salcnt?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - saldis CHAR CODES:', inversion.saldis?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - tasinv CHAR CODES:', inversion.tasinv?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - ¿Es Base64?:', {
+          salcnt: inversion.salcnt?.includes('='),
+          saldis: inversion.saldis?.includes('='),
+          tasinv: inversion.tasinv?.includes('=')
         });
 
         // Detectar y desencriptar salcnt (saldo contable)
