@@ -33,9 +33,13 @@ const SavingsProductForm = () => {
     fechaHasta: "", // YYYY/MM/DD
   });
 
-  // Estados para paginación
+  // Estados para paginación de cuentas
   const [currentPage, setCurrentPage] = useState(1);
   const accountsPerPage = 4;
+
+  // Estados para paginación del estado de cuenta
+  const [statementCurrentPage, setStatementCurrentPage] = useState(1);
+  const movementsPerPage = 15;
 
   // ============================================
   // 🔥 FUNCIONES DE CONVERSIÓN DE FECHAS YYYY/MM/DD
@@ -395,6 +399,7 @@ const SavingsProductForm = () => {
     setLoadingStatement(true);
     setStatementError(null);
     setAccountStatement([]);
+    setStatementCurrentPage(1); // Resetear paginación del estado de cuenta
 
     console.log("🔄 [STATEMENT] ===== INICIANDO CARGA =====");
     console.log("🔄 [STATEMENT] Cuenta seleccionada:", account.id);
@@ -570,6 +575,9 @@ const SavingsProductForm = () => {
   console.log('📅 [DEBUG] fechaDesde original:', dateFilters.fechaDesde);
   console.log('📅 [DEBUG] fechaHasta original:', dateFilters.fechaHasta);
 
+  // Resetear paginación al aplicar filtros
+  setStatementCurrentPage(1);
+
   // Validar que ambas fechas estén presentes
   if (!dateFilters.fechaDesde || !dateFilters.fechaHasta) {
     setStatementError("Debe seleccionar ambas fechas");
@@ -718,7 +726,7 @@ const SavingsProductForm = () => {
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.text(
-        `CUENTA: ${selectedAccount.id} - ${selectedAccount.type}`,
+        `CUENTA: ${selectedAccount.codctaDisplay || selectedAccount.id} - ${selectedAccount.type}`,
         15,
         38
       );
@@ -814,7 +822,7 @@ const SavingsProductForm = () => {
             // Información de la cuenta en páginas adicionales
             doc.setFontSize(6);
             doc.setFont("helvetica", "bold");
-            doc.text(`CUENTA: ${selectedAccount.id} - ${selectedAccount.type}`, 15, 30);
+            doc.text(`CUENTA: ${selectedAccount.codctaDisplay || selectedAccount.id} - ${selectedAccount.type}`, 15, 30);
             
             // Línea separadora
             doc.setLineWidth(0.2);
@@ -887,7 +895,8 @@ const SavingsProductForm = () => {
 
       // Generar nombre del archivo
       const fechaActual = new Date().toISOString().split("T")[0];
-      const nombreArchivo = `estado_cuenta_${selectedAccount.id}_${fechaActual}.pdf`;
+      const cuentaParaNombre = selectedAccount.codctaDisplay || selectedAccount.id;
+      const nombreArchivo = `estado_cuenta_${cuentaParaNombre}_${fechaActual}.pdf`;
 
       // Descargar PDF
       doc.save(nombreArchivo);
@@ -902,7 +911,7 @@ const SavingsProductForm = () => {
     }
   };
 
-  // Cálculos de paginación
+  // Cálculos de paginación para cuentas
   const totalPages = Math.ceil(savingsAccounts.length / accountsPerPage);
   const startIndex = (currentPage - 1) * accountsPerPage;
   const endIndex = startIndex + accountsPerPage;
@@ -910,6 +919,18 @@ const SavingsProductForm = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  // Cálculos de paginación para estado de cuenta
+  const totalStatementPages = Math.ceil(accountStatement.length / movementsPerPage);
+  const statementStartIndex = (statementCurrentPage - 1) * movementsPerPage;
+  const statementEndIndex = statementStartIndex + movementsPerPage;
+  const currentMovements = accountStatement.slice(statementStartIndex, statementEndIndex);
+
+  const handleStatementPageChange = (page) => {
+    setStatementCurrentPage(page);
+    // Scroll suave hacia arriba de la tabla
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Función para recargar datos
@@ -1045,6 +1066,8 @@ const SavingsProductForm = () => {
                 setStatementError(null);
                 // Limpiar filtros al volver
                 setDateFilters({ fechaDesde: "", fechaHasta: "" });
+                // Resetear paginación del estado de cuenta
+                setStatementCurrentPage(1);
               }}
               className="flex items-center space-x-3 text-gray-500 hover:text-gray-700 transition-colors group"
             >
@@ -1247,7 +1270,7 @@ const SavingsProductForm = () => {
                           </td>
                         </tr>
                       ) : (
-                        accountStatement.map((movement) => (
+                        currentMovements.map((movement) => (
                           <tr
                             key={movement.id}
                             className="hover:bg-gray-50 transition-colors"
@@ -1306,16 +1329,72 @@ const SavingsProductForm = () => {
                   </table>
                 </div>
 
+                {/* Footer con paginación */}
                 <div className="px-8 py-4 bg-gray-50 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-sm">
-                    <p className="text-gray-600">
-                      Mostrando {accountStatement.length} movimientos
-                      {dateFilters.fechaDesde && dateFilters.fechaHasta && (
-                        <span className="ml-2 text-sky-600">
-                          ({dateFilters.fechaDesde} - {dateFilters.fechaHasta})
-                        </span>
-                      )}
-                    </p>
+                  <div className="flex items-center justify-between">
+                    {/* Información de registros */}
+                    <div className="text-sm text-gray-600">
+                      <p>
+                        Mostrando {statementStartIndex + 1} - {Math.min(statementEndIndex, accountStatement.length)} de {accountStatement.length} movimientos
+                        {dateFilters.fechaDesde && dateFilters.fechaHasta && (
+                          <span className="ml-2 text-sky-600">
+                            ({dateFilters.fechaDesde} - {dateFilters.fechaHasta})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Controles de paginación */}
+                    {totalStatementPages > 1 && (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleStatementPageChange(statementCurrentPage - 1)}
+                          disabled={statementCurrentPage === 1}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Anterior
+                        </button>
+
+                        {/* Números de página */}
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, totalStatementPages) }, (_, i) => {
+                            // Lógica para mostrar páginas alrededor de la actual
+                            let pageNumber;
+                            if (totalStatementPages <= 5) {
+                              pageNumber = i + 1;
+                            } else if (statementCurrentPage <= 3) {
+                              pageNumber = i + 1;
+                            } else if (statementCurrentPage >= totalStatementPages - 2) {
+                              pageNumber = totalStatementPages - 4 + i;
+                            } else {
+                              pageNumber = statementCurrentPage - 2 + i;
+                            }
+
+                            return (
+                              <button
+                                key={pageNumber}
+                                onClick={() => handleStatementPageChange(pageNumber)}
+                                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                                  statementCurrentPage === pageNumber
+                                    ? "bg-sky-600 text-white"
+                                    : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                                }`}
+                              >
+                                {pageNumber}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          onClick={() => handleStatementPageChange(statementCurrentPage + 1)}
+                          disabled={statementCurrentPage === totalStatementPages}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

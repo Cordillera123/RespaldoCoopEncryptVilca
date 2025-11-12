@@ -22,9 +22,13 @@ const CreditProductForm = () => {
   const [loadingAmortization, setLoadingAmortization] = useState(false);
   const [amortizationError, setAmortizationError] = useState(null);
   
-  // Estados para paginación
+  // Estados para paginación de créditos
   const [currentPage, setCurrentPage] = useState(1);
   const creditsPerPage = 4;
+
+  // Estados para paginación de tabla de amortización
+  const [amortizationCurrentPage, setAmortizationCurrentPage] = useState(1);
+  const paymentsPerPage = 15;
 
   // Cargar créditos al montar el componente
   useEffect(() => {
@@ -216,6 +220,7 @@ const CreditProductForm = () => {
       setLoadingAmortization(true);
       setAmortizationError(null);
       setAmortizationTable([]);
+      setAmortizationCurrentPage(1); // Resetear paginación de tabla de amortización
       
       console.log('🔄 [AMORTIZATION] Cargando tabla de amortización para:', credit.id);
       
@@ -733,7 +738,7 @@ const CreditProductForm = () => {
     }
   };
 
-  // Cálculos de paginación
+  // Cálculos de paginación para créditos
   const totalPages = Math.ceil(credits.length / creditsPerPage);
   const startIndex = (currentPage - 1) * creditsPerPage;
   const endIndex = startIndex + creditsPerPage;
@@ -741,6 +746,18 @@ const CreditProductForm = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  // Cálculos de paginación para tabla de amortización
+  const totalAmortizationPages = Math.ceil(amortizationTable.length / paymentsPerPage);
+  const amortizationStartIndex = (amortizationCurrentPage - 1) * paymentsPerPage;
+  const amortizationEndIndex = amortizationStartIndex + paymentsPerPage;
+  const currentPayments = amortizationTable.slice(amortizationStartIndex, amortizationEndIndex);
+
+  const handleAmortizationPageChange = (page) => {
+    setAmortizationCurrentPage(page);
+    // Scroll suave hacia arriba de la tabla
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Función para recargar datos
@@ -810,6 +827,7 @@ const CreditProductForm = () => {
                 setSelectedCredit(null);
                 setAmortizationTable([]);
                 setAmortizationError(null);
+                setAmortizationCurrentPage(1); // Resetear paginación
               }}
               className="flex items-center space-x-3 text-gray-500 hover:text-gray-700 transition-colors group"
             >
@@ -1000,7 +1018,7 @@ const CreditProductForm = () => {
                           </td>
                         </tr>
                       ) : (
-                        amortizationTable.map((cuota) => (
+                        currentPayments.map((cuota) => (
                           <tr key={cuota.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-center">
                               <span className="inline-flex items-center justify-center w-8 h-8 bg-sky-100 text-sky-800 rounded-full text-sm font-bold">
@@ -1053,11 +1071,72 @@ const CreditProductForm = () => {
                   </table>
                 </div>
 
+                {/* Footer con paginación */}
                 <div className="px-8 py-4 bg-gray-50 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-sm">
-                    <p className="text-gray-600">
-                      Mostrando {amortizationTable.length} cuotas | Restantes: {selectedCredit.remainingPayments}
-                    </p>
+                  <div className="flex items-center justify-between">
+                    {/* Información de registros */}
+                    <div className="text-sm text-gray-600">
+                      <p>
+                        Mostrando {amortizationStartIndex + 1} - {Math.min(amortizationEndIndex, amortizationTable.length)} de {amortizationTable.length} cuotas
+                        {selectedCredit.remainingPayments > 0 && (
+                          <span className="ml-2 text-orange-600 font-semibold">
+                            | Pendientes: {selectedCredit.remainingPayments}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Controles de paginación */}
+                    {totalAmortizationPages > 1 && (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleAmortizationPageChange(amortizationCurrentPage - 1)}
+                          disabled={amortizationCurrentPage === 1}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Anterior
+                        </button>
+
+                        {/* Números de página */}
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, totalAmortizationPages) }, (_, i) => {
+                            // Lógica para mostrar páginas alrededor de la actual
+                            let pageNumber;
+                            if (totalAmortizationPages <= 5) {
+                              pageNumber = i + 1;
+                            } else if (amortizationCurrentPage <= 3) {
+                              pageNumber = i + 1;
+                            } else if (amortizationCurrentPage >= totalAmortizationPages - 2) {
+                              pageNumber = totalAmortizationPages - 4 + i;
+                            } else {
+                              pageNumber = amortizationCurrentPage - 2 + i;
+                            }
+
+                            return (
+                              <button
+                                key={pageNumber}
+                                onClick={() => handleAmortizationPageChange(pageNumber)}
+                                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                                  amortizationCurrentPage === pageNumber
+                                    ? "bg-sky-600 text-white"
+                                    : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                                }`}
+                              >
+                                {pageNumber}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          onClick={() => handleAmortizationPageChange(amortizationCurrentPage + 1)}
+                          disabled={amortizationCurrentPage === totalAmortizationPages}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
