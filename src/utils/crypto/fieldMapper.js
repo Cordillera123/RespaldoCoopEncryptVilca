@@ -463,16 +463,13 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2370': {
     description: 'Eliminar beneficiario',
     encryptFields: [
-      // ✅ SOLO CAMPOS SENSIBLES QUE VIENEN EN TEXTO PLANO
+      // ✅ CAMPOS SENSIBLES
       'identificacion',
       'idecl',        // Cédula del cliente (SENSIBLE - texto plano)
-      'ideclr'        // Cédula/RUC receptor (SENSIBLE - texto plano)
-      // ⚠️ REMOVIDO 'codctac' - Ya viene ENCRIPTADO desde la DB
-      // El backend NO debe encriptar ni desencriptar este campo
-      // Debe usarlo tal cual para el DELETE en la base de datos
+      'ideclr',       // Cédula/RUC receptor (SENSIBLE - texto plano)
+      'codctac'       // ✅ AGREGADO: Número de cuenta beneficiario (SENSIBLE)
     ],
     // ❌ NO ENCRIPTAR: codifi, codtidr, codtcur (códigos de catálogo)
-    // ❌ NO ENCRIPTAR: codctac (ya viene encriptado desde DB)
     decryptFields: []
   },
 
@@ -507,7 +504,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
     description: 'Listar cuentas (para inversión o certificados)',
     encryptFields: ['identificacion', 'idecl', 'valinver', 'valor', 'monto', 'vlr'],
     decryptFields: [
-      // ⚠️ NO desencriptar 'codcta' - Se necesita encriptado para proceso 2375 (registro inversión)
+      'codcta',   // ✅ Desencriptar para mostrar en UI de certificados
       'saldo',    // Saldos desencriptados
       'sldcta',   // Saldo cuenta
       'valor',    // Valores monetarios
