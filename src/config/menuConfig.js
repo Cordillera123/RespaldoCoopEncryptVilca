@@ -406,6 +406,15 @@ export const addServicesToMenu = (menu, serviciosAvailable) => {
         customIcon: '📜',
         description: 'Emisión y gestión de certificados',
         color: 'copper'
+      },
+      {
+        id: 'cupos-personalizados',
+        label: 'Personalización de Cupos',
+        component: 'CupoComponent',
+        iconType: 'custom',
+        customIcon: '💰',
+        description: 'Configura límites diarios de transferencia',
+        color: 'gold'
       }
     ]
   };

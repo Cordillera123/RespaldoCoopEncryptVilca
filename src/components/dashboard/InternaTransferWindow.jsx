@@ -777,13 +777,7 @@ const InternaTransferWindow = ({ openWindow }) => {
                             <div className={`absolute right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-10 ${index >= paginationData.items.length - 2 ? 'bottom-full mb-2' : 'top-full mt-2'
                               }`}>
                               <div className="py-1">
-                                <button
-                                  onClick={() => handleEditContact(contact)}
-                                  className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
-                                >
-                                  <svg className="w-4 h-4 text-sky-600" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" /></svg>
-                                  <span>Editar</span>
-                                </button>
+                                
                                 <button
                                   onClick={() => handleViewHistory(contact)}
                                   className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-3"

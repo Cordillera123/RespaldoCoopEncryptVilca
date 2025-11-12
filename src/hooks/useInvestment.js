@@ -712,7 +712,36 @@ const loadSecurityQuestion = async () => {
 /**
  * Validar respuesta de pregunta de seguridad
  */
-const validateSecurityAnswer = async (answer) => {
+const validateSecurityAnswer = async (answer, validationType = 'question') => {
+  // Si la validación es por OTP, solo proceder con el registro
+  if (validationType === 'otp') {
+    console.log('✅ [INVESTMENT] Validación OTP completada exitosamente');
+    
+    // Pasar a la siguiente fase: procesamiento
+    setInvestmentProcess(prev => ({
+      ...prev,
+      currentPhase: 'processing'
+    }));
+    
+    // Limpiar datos de pregunta de seguridad
+    setSecurityQuestion({
+      data: null,
+      loading: false,
+      answer: '',
+      error: null,
+      attempts: 0,
+      maxAttempts: 3
+    });
+    
+    // Proceder con el registro de inversión
+    setTimeout(() => {
+      registerInvestment();
+    }, 1000);
+    
+    return { success: true };
+  }
+
+  // Validación por pregunta de seguridad (flujo original)
   if (!answer || !answer.trim()) {
     return {
       success: false,

@@ -23,6 +23,7 @@ import ExternaTransferWindow from './ExternaTransferWindow';
 import InternacioTransferWindow from './InternacioTransferWindow';
 import ServiciosFacilitoForm from "./ServiciosFacilitoForm";
 import CertificadosForm from "./CertificadosForm";
+import CupoComponent from "./CupoComponent";
 
 // === IMPORTAR COMPONENTES EMPRESARIALES ===
 import {
@@ -99,6 +100,7 @@ const FormComponents = {
   FixedDepositForm: () => <FormPlaceholder title="Depósitos a Plazo" />,
   TransactionsForm: () => <FormPlaceholder title="Transacciones" />,
   CertificadosForm: () => <CertificadosForm title="Certificados"/>,
+  CupoComponent: () => <CupoComponent />,
   TransactionHistoryForm: () => (
     <FormPlaceholder title="Historial de Transacciones" />
   ),
@@ -649,6 +651,7 @@ const Dashboard = ({ userSession, onLogout }) => {
       'InternationalTransferForm': 'Internacional',
       'ServiciosFacilitoForm': 'Servicios Facilito',
       'CertificadosForm': 'Certificados',
+      'CupoComponent': 'Personalización de Cupos',
       'PerfilComponent': 'Mi Perfil',
       'UpdatePasswordForm': 'Cambiar Clave',
       'StatsForm': 'Términos'

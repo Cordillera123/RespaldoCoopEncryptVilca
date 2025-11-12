@@ -9,3 +9,4 @@ export { default as TransferCoopint } from './TransferCoopint';
 export { default as TransferExt } from './TransferExt';
 export { default as NewContact } from './NewContact';
 export { default as PerfilComponent } from './PerfilComponent';
+export { default as CupoComponent } from './CupoComponent';
