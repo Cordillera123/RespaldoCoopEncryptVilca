@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import forgotPasswordService from '../services/forgotPasswordService.js';
 import apiService from '../services/apiService.js'; // ✅ AGREGAR apiService
+import { decrypt } from '../utils/crypto/encryptionService.js'; // ✅ Importar decrypt
 import CodigoPage from './CodigoPage';
 import backgroundImage from "/public/assets/images/onu.jpg";
 
@@ -134,9 +135,9 @@ const ForgotPassword = ({ onBackToLogin }) => {
       setUsernameStatus('idle');
     }
 
-    // ✅ CARGAR PREGUNTAS cuando se ingresa cédula completa (10 dígitos)
-    if (name === 'cedula' && value.length === 10 && internalView === 'identity') {
-      console.log('🔒 [FORGOT] Cédula completa detectada, cargando preguntas...');
+    // ✅ CARGAR PREGUNTAS cuando se ingresa cédula completa (10 dígitos) o RUC (13 dígitos)
+    if (name === 'cedula' && (value.length === 10 || value.length === 13) && internalView === 'identity') {
+      console.log('🔒 [FORGOT] Cédula/RUC completo detectado, cargando preguntas...');
       getSecurityQuestion(value);
     }
   };
@@ -184,21 +185,19 @@ const ForgotPassword = ({ onBackToLogin }) => {
         console.log('✅ [FORGOT] Contraseña validada correctamente');
         showAlert('Contraseña válida. Proceda con la validación de identidad.', 'success');
         
-        // ⚠️ IMPORTANTE: No usar userInfo.cliente[0].idecli porque puede venir encriptado del backend
-        // Se usará formData.cedula que el usuario ingresará en el siguiente paso
-        
-        // Ir al siguiente paso
+        // Ir al siguiente paso después de mostrar mensaje
         setTimeout(() => {
           setInternalView('identity');
+          setIsLoading(false); // Asegurar que isLoading se desactive
         }, 1500);
       } else {
         console.log('❌ [FORGOT] Contraseña no válida:', result.error);
         showAlert(result.error.message || 'La contraseña no cumple con los requisitos', 'error');
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('💥 [FORGOT] Error validando contraseña:', error);
       showAlert('Error validando contraseña', 'error');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -208,13 +207,52 @@ const ForgotPassword = ({ onBackToLogin }) => {
     e.preventDefault();
     
     if (!formData.cedula.trim()) {
-      showAlert('Por favor ingrese su número de cédula', 'error');
+      showAlert('Por favor ingrese su cédula o RUC', 'error');
       return;
     }
 
-    // ✅ REMOVIDA VALIDACIÓN: No comparamos con userInfo.cliente[0].idecli porque viene encriptado
-    // Si las preguntas se cargaron correctamente, significa que la cédula es válida
-    // (las preguntas solo se cargan si la cédula existe en el sistema)
+    if (formData.cedula.length !== 10 && formData.cedula.length !== 13) {
+      showAlert('La cédula debe tener 10 dígitos o el RUC 13 dígitos', 'error');
+      return;
+    }
+
+    // ✅ VALIDACIÓN CRÍTICA: La cédula/RUC ingresada DEBE pertenecer al usuario validado
+    console.log('🔐 [FORGOT] Verificando que cédula pertenece al usuario:', formData.username);
+    console.log('📝 [FORGOT] Cédula ingresada:', formData.cedula);
+    console.log('📝 [FORGOT] Cédula del usuario validado:', userInfo?.cliente?.[0]?.idecli);
+    
+    // Validar que la cédula ingresada corresponda al usuario
+    const result = await apiService.verifyCedula(formData.cedula);
+    
+    if (!result.success) {
+      showAlert('Cédula o RUC no encontrado en el sistema', 'error');
+      return;
+    }
+    
+    // Verificar que el usuario de la cédula coincida con el usuario validado
+    // ⚠️ IMPORTANTE: webusu viene ENCRIPTADO desde el backend, hay que desencriptarlo
+    let webusuFromCedula = result.data?.webusu;
+    
+    // Desencriptar el webusu si viene encriptado (Base64)
+    if (webusuFromCedula && (webusuFromCedula.includes('==') || webusuFromCedula.includes('/') || webusuFromCedula.includes('+'))) {
+      try {
+        console.log('🔓 [FORGOT] Desencriptando webusu:', webusuFromCedula);
+        webusuFromCedula = decrypt(webusuFromCedula);
+        console.log('✅ [FORGOT] webusu desencriptado:', webusuFromCedula);
+      } catch (error) {
+        console.warn('⚠️ [FORGOT] Error desencriptando webusu, usando valor original:', error);
+      }
+    }
+    
+    if (webusuFromCedula !== formData.username) {
+      console.log('❌ [FORGOT] Cédula no corresponde al usuario');
+      console.log('📝 [FORGOT] Usuario de cédula (desencriptado):', webusuFromCedula);
+      console.log('📝 [FORGOT] Usuario esperado:', formData.username);
+      showAlert('La cédula o RUC ingresado no corresponde al usuario ' + formData.username, 'error');
+      return;
+    }
+    
+    console.log('✅ [FORGOT] Cédula validada correctamente para el usuario');
 
     if (!formData.respuesta.trim()) {
       showAlert('Por favor ingrese su respuesta de seguridad', 'error');
@@ -233,13 +271,13 @@ const ForgotPassword = ({ onBackToLogin }) => {
     
     try {
       // ✅ USAR apiService.validateSecurityAnswer() - el mismo que usa NewContactQuestions
-      const result = await apiService.validateSecurityAnswer(
+      const validateResult = await apiService.validateSecurityAnswer(
         formData.cedula,
         securityQuestion.codprg,
         formData.respuesta
       );
       
-      if (result.success) {
+      if (validateResult.success) {
         console.log('✅ [FORGOT] Identidad validada correctamente');
         showAlert('Identidad confirmada. Enviando código de seguridad...', 'success');
         
@@ -252,8 +290,8 @@ const ForgotPassword = ({ onBackToLogin }) => {
           });
         }, 1500);
       } else {
-        console.log('❌ [FORGOT] Validación fallida:', result.error);
-        showAlert(result.error.message || 'Respuesta de seguridad incorrecta', 'error');
+        console.log('❌ [FORGOT] Validación fallida:', validateResult.error);
+        showAlert(validateResult.error.message || 'Respuesta de seguridad incorrecta', 'error');
       }
     } catch (error) {
       console.error('💥 [FORGOT] Error validando identidad:', error);
@@ -666,9 +704,19 @@ const ForgotPassword = ({ onBackToLogin }) => {
 
                     <button
                       type="submit"
-                      disabled={isLoading || usernameStatus !== 'valid'}
+                      disabled={
+                        isLoading || 
+                        usernameStatus !== 'valid' || 
+                        !formData.newPassword.trim() || 
+                        !formData.confirmPassword.trim() || 
+                        formData.newPassword !== formData.confirmPassword
+                      }
                       className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
-                        isLoading || usernameStatus !== 'valid'
+                        isLoading || 
+                        usernameStatus !== 'valid' || 
+                        !formData.newPassword.trim() || 
+                        !formData.confirmPassword.trim() || 
+                        formData.newPassword !== formData.confirmPassword
                           ? 'bg-slate-400'
                           : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
                       }`}
@@ -683,6 +731,10 @@ const ForgotPassword = ({ onBackToLogin }) => {
                         </>
                       ) : usernameStatus !== 'valid' ? (
                         'Ingrese un usuario válido para continuar'
+                      ) : !formData.newPassword.trim() || !formData.confirmPassword.trim() ? (
+                        'Complete ambas contraseñas'
+                      ) : formData.newPassword !== formData.confirmPassword ? (
+                        'Las contraseñas deben coincidir'
                       ) : (
                         ' CONTINUAR'
                       )}
@@ -731,7 +783,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 <form onSubmit={handleValidateIdentity} className="space-y-4">
                   <div className="space-y-2">
                     <label htmlFor="cedula" className="block text-xs font-bold text-slate-700 tracking-wide uppercase">
-                      Número de Identificación
+                      Cédula o RUC
                     </label>
                     <input
                       id="cedula"
@@ -739,12 +791,12 @@ const ForgotPassword = ({ onBackToLogin }) => {
                       type="text"
                       value={formData.cedula}
                       onChange={handleInputChange}
-                      placeholder="Ej: 1723456789"
-                      maxLength="10"
+                      placeholder="Cédula (10 dígitos) o RUC (13 dígitos)"
+                      maxLength="13"
                       className="block w-full px-3 py-3 border-2 rounded-lg bg-white text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 font-medium text-sm shadow-sm hover:shadow-md border-slate-300 hover:border-slate-400"
                     />
                     <p className="text-slate-600 text-xs">
-                      Debe coincidir con la cédula registrada para el usuario {formData.username}
+                      Ingrese cédula (10 dígitos) o RUC (13 dígitos) registrado para el usuario {formData.username}
                     </p>
                   </div>
 
@@ -808,9 +860,19 @@ const ForgotPassword = ({ onBackToLogin }) => {
                     </button>
                     <button
                       type="submit"
-                      disabled={isLoading || !securityQuestion}
+                      disabled={
+                        isLoading || 
+                        !securityQuestion || 
+                        !formData.cedula.trim() || 
+                        (formData.cedula.length !== 10 && formData.cedula.length !== 13) || 
+                        !formData.respuesta.trim()
+                      }
                       className={`group relative flex-1 flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
-                        (isLoading || !securityQuestion) ? 'bg-slate-400' : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                        (isLoading || 
+                        !securityQuestion || 
+                        !formData.cedula.trim() || 
+                        (formData.cedula.length !== 10 && formData.cedula.length !== 13) || 
+                        !formData.respuesta.trim()) ? 'bg-slate-400' : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
                       }`}
                     >
                       {isLoading ? (
@@ -821,6 +883,12 @@ const ForgotPassword = ({ onBackToLogin }) => {
                           </svg>
                           Validando...
                         </>
+                      ) : !formData.cedula.trim() || (formData.cedula.length !== 10 && formData.cedula.length !== 13) ? (
+                        'Complete cédula o RUC'
+                      ) : !formData.respuesta.trim() ? (
+                        'Ingrese su respuesta'
+                      ) : !securityQuestion ? (
+                        'Cargando pregunta...'
                       ) : (
                         <span className="relative z-10 tracking-wide font-bold uppercase text-sm">CONTINUAR</span>
                       )}

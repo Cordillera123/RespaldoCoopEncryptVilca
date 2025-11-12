@@ -23,6 +23,8 @@ const CodigoPage = ({ userInfo, onBackToLogin, onSuccess, isBlockingUser = false
   const [alert, setAlert] = useState(null);
   const [isAnimated, setIsAnimated] = useState(false);
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutos en segundos
+  const [attemptCount, setAttemptCount] = useState(0); // Contador de intentos
+  const [maxAttempts] = useState(3); // Máximo de intentos permitidos
 
   // Ref para el input del código
   const codigoRef = useRef(null);
@@ -168,6 +170,7 @@ const requestSecurityCode = async () => {
       if (result.success) {
         console.log('✅ [CODE] Código validado correctamente');
         setCurrentStep('success');
+        setAttemptCount(0); // Resetear intentos en éxito
         
         if (isBlockingUser) {
           showAlert('¡Usuario bloqueado exitosamente!', 'success');
@@ -179,12 +182,33 @@ const requestSecurityCode = async () => {
       } else {
         console.log('❌ [CODE] Error validando código:', result.error);
         
+        // Incrementar contador de intentos
+        const newAttemptCount = attemptCount + 1;
+        setAttemptCount(newAttemptCount);
+        console.log(`⚠️ [CODE] Intento ${newAttemptCount} de ${maxAttempts}`);
+        
+        // Verificar si se alcanzó el máximo de intentos
+        if (newAttemptCount >= maxAttempts) {
+          console.log('🚫 [CODE] Máximo de intentos alcanzado');
+          showAlert(`Ha superado el máximo de ${maxAttempts} intentos. Por favor, solicite un nuevo código.`, 'error');
+          
+          // Bloquear y resetear después de 3 segundos
+          setTimeout(() => {
+            setCurrentStep('requesting');
+            setAttemptCount(0);
+            setTimeLeft(120);
+            requestSecurityCode(); // Solicitar nuevo código automáticamente
+          }, 3000);
+          
+          return; // Salir de la función
+        }
+        
         // Determinar mensaje de error específico
         let errorMessage = result.error.message || 'Código de seguridad incorrecto';
         
         switch (result.error.code) {
           case 'INVALID_SECURITY_CODE':
-            errorMessage = 'El código de seguridad es incorrecto';
+            errorMessage = `Código incorrecto. Intento ${newAttemptCount} de ${maxAttempts}`;
             break;
           case 'EXPIRED_CODE':
             errorMessage = 'El código de seguridad ha expirado';
@@ -193,7 +217,7 @@ const requestSecurityCode = async () => {
             errorMessage = 'Usuario no encontrado';
             break;
           default:
-            errorMessage = result.error.message || 'Error al procesar el código';
+            errorMessage = `${result.error.message || 'Error al procesar el código'}. Intento ${newAttemptCount} de ${maxAttempts}`;
         }
         
         showAlert(errorMessage, 'error');
@@ -310,6 +334,7 @@ const requestSecurityCode = async () => {
     setCodigo('');
     setOtpCode(['', '', '', '', '', '']);
     setAlert(null);
+    setAttemptCount(0); // Resetear contador de intentos
     setTimeLeft(120); // Reiniciar contador
     requestSecurityCode();
   };
@@ -567,6 +592,21 @@ const requestSecurityCode = async () => {
                     ))}
                   </div>
                   
+                  {/* Indicador de intentos - Solo mostrar si NO hay alerta de error activa */}
+                  {attemptCount > 0 && !alert && (
+                    <div className={`text-center py-2 px-3 rounded-lg backdrop-blur-sm ${
+                      attemptCount >= maxAttempts - 1 ? 'bg-red-50/80 border border-red-200/60' : 'bg-amber-50/80 border border-amber-200/60'
+                    }`}>
+                      <p className={`text-xs font-bold ${
+                        attemptCount >= maxAttempts - 1 ? 'text-red-700' : 'text-amber-700'
+                      }`}>
+                        {attemptCount >= maxAttempts - 1 ? '⚠️ ' : ''}
+                        Intento {attemptCount} de {maxAttempts}
+                        {attemptCount >= maxAttempts - 1 ? ' - Último intento' : ''}
+                      </p>
+                    </div>
+                  )}
+                  
                   <p className="text-slate-600 text-xs text-center font-medium">
                    
                   </p>
@@ -649,14 +689,7 @@ const requestSecurityCode = async () => {
                   </div>
                 )}
 
-                {isChangingPassword && (
-                  <div className="bg-cyan-50/80 border border-cyan-200/60 rounded-lg p-4 mb-6 backdrop-blur-sm">
-                    <p className="text-cyan-800 text-sm font-medium">
-                      <strong>Importante:</strong> Su contraseña ha sido actualizada. Ya puede iniciar sesión con su nueva contraseña.
-                    </p>
-                  </div>
-                )}
-                
+               
                 <button
                   onClick={onBackToLogin}
                   className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"

@@ -1,6 +1,7 @@
 // src/components/BlockUser.jsx
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService.js';
+import { decrypt } from '../utils/crypto/encryptionService.js'; // Importar función decrypt
 import CodigoPage from './CodigoPage';
 import backgroundImage from "/public/assets/images/onu.jpg";
 
@@ -68,12 +69,12 @@ const BlockUser = ({ onBackToLogin }) => {
       [name]: value,
     }));
 
-    // Validar cédula en tiempo real
+    // Validar cédula/RUC en tiempo real
     if (name === 'cedula') {
-      if (value.length >= 10) { // Validar cuando tenga 10 dígitos
+      if (value.length === 10 || value.length === 13) { // Validar cuando tenga 10 o 13 dígitos
         validateCedulaRealTime(value);
       } else {
-        // Resetear estados si la cédula es muy corta
+        // Resetear estados si la cédula/RUC es incompleta
         setCedulaValidated(false);
         setUserInfo(null);
         setSecurityQuestions([]); // Limpiar array de preguntas
@@ -84,11 +85,11 @@ const BlockUser = ({ onBackToLogin }) => {
     }
   };
 
-  // Validación de cédula en tiempo real
+  // Validación de cédula/RUC en tiempo real
   const validateCedulaRealTime = async (cedula) => {
-    if (cedula.length !== 10) return;
+    if (cedula.length !== 10 && cedula.length !== 13) return;
     
-    console.log('⚡ [BLOCK] Validación en tiempo real de cédula:', cedula);
+    console.log('⚡ [BLOCK] Validación en tiempo real de cédula/RUC:', cedula);
     setIsValidatingCedula(true);
     
     try {
@@ -234,6 +235,25 @@ const BlockUser = ({ onBackToLogin }) => {
     }
   };
 
+  // Función helper para desencriptar usuario si está encriptado
+  const getDecryptedUsername = (username) => {
+    if (!username) return '';
+    
+    // Detectar si está encriptado (Base64 tiene caracteres como ==, +, /)
+    if (username.includes('==') || username.includes('+') || username.includes('/')) {
+      try {
+        console.log('🔓 [BLOCK] Desencriptando usuario');
+        const decrypted = decrypt(username);
+        console.log('✅ [BLOCK] Usuario desencriptado correctamente');
+        return decrypted;
+      } catch (error) {
+        console.warn('⚠️ [BLOCK] Error desencriptando usuario, usando valor original:', error);
+        return username;
+      }
+    }
+    return username;
+  };
+
   // RENDER CONDICIONAL: Mostrar CodigoPage si internalView es 'code'
   if (internalView === 'code' && codeUserInfo) {
     return (
@@ -358,7 +378,7 @@ const BlockUser = ({ onBackToLogin }) => {
               {/* Campo de cédula */}
               <div className="space-y-1">
                 <label htmlFor="cedula" className="block text-xs font-bold text-slate-700 tracking-wide uppercase">
-                  Número de Identificación
+                  Cédula o RUC
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -372,8 +392,8 @@ const BlockUser = ({ onBackToLogin }) => {
                     type="text"
                     value={formData.cedula}
                     onChange={handleInputChange}
-                    placeholder="Ej: 1723456789"
-                    maxLength="10"
+                    placeholder="Cédula (10 dígitos) o RUC (13 dígitos)"
+                    maxLength="13"
                     disabled={isLoading}
                     className={`block w-full pl-10 pr-12 py-3 border-2 rounded-lg bg-white text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm hover:shadow-md ${
                       cedulaValidated 
@@ -412,7 +432,7 @@ const BlockUser = ({ onBackToLogin }) => {
                         {userInfo.cliente[0].nomcli} {userInfo.cliente[0].apecli}
                       </p>
                       <p className="text-cyan-600 text-xs">
-                        Usuario: {userInfo.webusu}
+                        Usuario: {getDecryptedUsername(userInfo.webusu)}
                       </p>
                     </div>
                   </div>
@@ -477,8 +497,24 @@ const BlockUser = ({ onBackToLogin }) => {
               <div className="pt-1">
                 <button
                   type="submit"
-                  disabled={isLoading || !cedulaValidated || !securityQuestion || !formData.respuesta.trim()}
-                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                  disabled={
+                    isLoading || 
+                    !cedulaValidated || 
+                    !securityQuestion || 
+                    !formData.cedula.trim() || 
+                    (formData.cedula.length !== 10 && formData.cedula.length !== 13) || 
+                    !formData.respuesta.trim()
+                  }
+                  className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                    (isLoading || 
+                    !cedulaValidated || 
+                    !securityQuestion || 
+                    !formData.cedula.trim() || 
+                    (formData.cedula.length !== 10 && formData.cedula.length !== 13) || 
+                    !formData.respuesta.trim())
+                      ? 'bg-slate-400'
+                      : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                  }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-transparent rounded-lg"></div>
                   
@@ -490,6 +526,14 @@ const BlockUser = ({ onBackToLogin }) => {
                       </svg>
                       <span className="relative z-10 tracking-wide text-xs">Validando...</span>
                     </>
+                  ) : !formData.cedula.trim() || (formData.cedula.length !== 10 && formData.cedula.length !== 13) ? (
+                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Complete cédula o RUC</span>
+                  ) : !cedulaValidated ? (
+                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Validando...</span>
+                  ) : !securityQuestion ? (
+                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Cargando pregunta...</span>
+                  ) : !formData.respuesta.trim() ? (
+                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Ingrese su respuesta</span>
                   ) : (
                     <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Continuar</span>
                   )}

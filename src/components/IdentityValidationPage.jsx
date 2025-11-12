@@ -292,7 +292,7 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
                       type="text"
                       value={formData.cedula}
                       onChange={handleInputChange}
-                      placeholder="Ej: 1711495000"
+                      placeholder="Ej: 1712345678"
                       disabled={isLoading}
                       className={`block w-full pl-10 pr-3 py-3 border-2 rounded-lg bg-white text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm hover:shadow-md ${
                         errors.cedula ? 'border-red-400 ring-2 ring-red-200' : 'border-slate-300 hover:border-slate-400'
