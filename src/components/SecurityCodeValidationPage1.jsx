@@ -21,6 +21,10 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
   const [errors, setErrors] = useState({});
   const [alert, setAlert] = useState(null);
   const [isAnimated, setIsAnimated] = useState(false);
+  
+  // 🔒 Sistema de 3 intentos
+  const [attemptCount, setAttemptCount] = useState(0);
+  const maxAttempts = 3;
 
   const inputRefs = useRef([]);
   const countdownRef = useRef(null);
@@ -94,7 +98,7 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
 
     try {
       // Paso 1: Validar el código de seguridad
-      console.log('🔐 [CODE-VALIDATION] Validando código...');
+      console.log('🔐 [CODE-VALIDATION] Validando código... (Intento ' + (attemptCount + 1) + ' de ' + maxAttempts + ')');
       const codeValidation = await apiService.validateSecurityCodeForUserRegistration(
         registrationData.cedula,
         idemsg,
@@ -102,7 +106,42 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
       );
 
       if (!codeValidation.success) {
-        throw new Error(codeValidation.error.message);
+        // ❌ Código incorrecto - incrementar intentos
+        const newAttemptCount = attemptCount + 1;
+        setAttemptCount(newAttemptCount);
+        
+        console.error('❌ [CODE-VALIDATION] Código incorrecto (Intento ' + newAttemptCount + ' de ' + maxAttempts + ')');
+        
+        if (newAttemptCount >= maxAttempts) {
+          // Bloqueado después de 3 intentos - REDIRIGIR AL LOGIN
+          console.log('🚫 [CODE-VALIDATION] Máximo de intentos alcanzado - Cancelando registro');
+          setAlert({ 
+            message: 'Ha superado el máximo de 3 intentos. El registro será cancelado y será redirigido al inicio.', 
+            type: 'error' 
+          });
+          
+          // MANTENER isLoading=true para bloquear el botón
+          // Redirigir al inicio después de 3 segundos
+          setTimeout(() => {
+            console.log('🔄 [CODE-VALIDATION] Redirigiendo al login por exceso de intentos');
+            onBack(); // Regresar al inicio del flujo
+          }, 3000);
+          
+          return; // Salir sin liberar isLoading - el botón queda bloqueado
+        } else {
+          // Aún tiene intentos disponibles
+          setCurrentStep('validate');
+          setErrors({ code: 'Código incorrecto o expirado' });
+          setAlert({ 
+            message: `Código incorrecto. Le quedan ${maxAttempts - newAttemptCount} intentos.`, 
+            type: 'error' 
+          });
+          setOtpCode(['', '', '', '', '', '']);
+          setSecurityCode('');
+          setTimeout(() => inputRefs.current[0]?.focus(), 100);
+          setIsLoading(false); // Liberar solo si hay intentos disponibles
+          return;
+        }
       }
 
       console.log('✅ [CODE-VALIDATION] Código validado correctamente');
@@ -124,6 +163,7 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
 
       if (registrationResult.success) {
         console.log('🎉 [CODE-VALIDATION] ¡Registro completo exitoso!');
+        setAttemptCount(0); // Resetear intentos en éxito
         setAlert({ message: '¡Registro completado exitosamente!', type: 'success' });
         
         setTimeout(() => {
@@ -153,8 +193,7 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
       }
       
       setAlert({ message: errorMessage, type: 'error' });
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Liberar solo en caso de excepción
     }
   };
 
@@ -205,13 +244,14 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
   };
 
   const handleResendCode = async () => {
-    if (countdown > 0) return;
+    if (countdown > 0 || attemptCount >= maxAttempts) return;
     
     console.log('🔄 [CODE-VALIDATION] Reenviando código de seguridad');
     setSecurityCode('');
     setOtpCode(['', '', '', '', '', '']);
     setErrors({});
     setCountdown(120); // Reiniciar contador
+    setAttemptCount(0); // Resetear intentos al reenviar código
     setAlert(null);
     await handleRequestCode();
   };
@@ -399,24 +439,52 @@ const SecurityCodeValidationPage1 = ({ registrationData, onSuccess, onBack }) =>
           <div className="space-y-3 pt-1">
             <button
               type="submit"
-              disabled={isLoading || securityCode.length !== 6}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+              disabled={isLoading || securityCode.length !== 6 || attemptCount >= maxAttempts}
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                (isLoading || securityCode.length !== 6 || attemptCount >= maxAttempts)
+                  ? 'bg-slate-400'
+                  : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+              }`}
             >
-              {isLoading ? 'PROCESANDO...' : 'COMPLETAR REGISTRO'}
+              {isLoading ? 'PROCESANDO...' : attemptCount >= maxAttempts ? '🔒 BLOQUEADO' : 'COMPLETAR REGISTRO'}
             </button>
+            
+            {/* Indicador de intentos */}
+            {attemptCount > 0 && attemptCount < maxAttempts && !alert && (
+              <div className={`w-full flex justify-center py-2 px-4 rounded-lg backdrop-blur-sm transition-all duration-300 ${
+                attemptCount === 1 ? 'bg-amber-50/80 border border-amber-200/60' :
+                attemptCount === 2 ? 'bg-amber-100/80 border border-amber-300/70' :
+                'bg-red-100/80 border border-red-300/70'
+              }`}>
+                <span className={`text-xs font-bold ${
+                  attemptCount === 1 ? 'text-amber-700' :
+                  attemptCount === 2 ? 'text-amber-800' :
+                  'text-red-800'
+                }`}>
+                  ⚠️ Intento {attemptCount} de {maxAttempts} - {maxAttempts - attemptCount} {maxAttempts - attemptCount === 1 ? 'intento restante' : 'intentos restantes'}
+                </span>
+              </div>
+            )}
+            
             {countdown > 0 ? (
               <div className="w-full flex justify-center py-2 px-4 bg-slate-100/80 rounded-lg backdrop-blur-sm">
                 <span className="text-xs font-semibold text-slate-600">
                   Reenviar código en {formatTime(countdown)}
                 </span>
               </div>
+            ) : attemptCount >= maxAttempts ? (
+              <div className="w-full flex justify-center py-2 px-4 bg-red-100/80 rounded-lg backdrop-blur-sm border border-red-300/70">
+                <span className="text-xs font-bold text-red-800">
+                  🚫 Máximo de intentos alcanzado - Redirigiendo...
+                </span>
+              </div>
             ) : (
               <button
                 type="button"
                 onClick={handleResendCode}
-                disabled={isLoading}
+                disabled={isLoading || attemptCount >= maxAttempts}
                 className={`w-full flex justify-center py-2 px-4 text-xs font-semibold transition-colors duration-200 hover:underline decoration-2 underline-offset-2 ${
-                  isLoading ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-800'
+                  (isLoading || attemptCount >= maxAttempts) ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-800'
                 }`}
               >
                 Reenviar código

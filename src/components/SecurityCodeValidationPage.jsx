@@ -1,6 +1,7 @@
 // src/components/SecurityCodeValidationPage.jsx - DISEÑO CENTRADO COMPLETO
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../services/apiService.js';
+import { decrypt } from '../utils/crypto/encryptionService.js'; // ✅ Importar decrypt
 import backgroundImage from "/public/assets/images/onu.jpg";
 
 const backgroundStyle = {
@@ -23,6 +24,10 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
   const [currentStep, setCurrentStep] = useState('code'); // 'code', 'success', 'error'
   const codeRef = useRef(null);
   const inputRefs = useRef([]); // Referencias para los inputs OTP
+  
+  // 🔒 Sistema de 3 intentos
+  const [attemptCount, setAttemptCount] = useState(0);
+  const maxAttempts = 3;
 
   useEffect(() => {
     const timer = setTimeout(() => setIsAnimated(true), 100);
@@ -149,11 +154,20 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
       return;
     }
 
+    // 🔒 Verificar si alcanzó el máximo de intentos
+    if (attemptCount >= maxAttempts) {
+      setAlert({ 
+        message: 'Ha alcanzado el máximo de 3 intentos. Solicite un nuevo código.', 
+        type: 'error' 
+      });
+      return;
+    }
+
     setIsValidating(true);
     setAlert({ message: 'Validando código de seguridad...', type: 'info' });
 
     try {
-      console.log('🔐 [CODE-VALIDATION] Validando código de seguridad');
+      console.log('🔐 [CODE-VALIDATION] Validando código de seguridad (Intento ' + (attemptCount + 1) + ' de ' + maxAttempts + ')');
       
       // Primero validar el código
       const validateResult = await apiService.validateSecurityCodeForRegistration(
@@ -195,18 +209,46 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
           setCurrentStep('error');
         }
       } else {
-        console.error('❌ [CODE-VALIDATION] Error validando código:', validateResult.error);
-        setAlert({ message: validateResult.error.message, type: 'error' });
-        setSecurityCode(''); // Limpiar código incorrecto
-        setOtpCode(['', '', '', '', '', '']); // Limpiar inputs OTP
-        inputRefs.current[0]?.focus();
+        // ❌ Código incorrecto - incrementar intentos
+        const newAttemptCount = attemptCount + 1;
+        setAttemptCount(newAttemptCount);
+        
+        console.error('❌ [CODE-VALIDATION] Error validando código (Intento ' + newAttemptCount + ' de ' + maxAttempts + ')');
+        
+        if (newAttemptCount >= maxAttempts) {
+          // Bloqueado después de 3 intentos - REDIRIGIR AL LOGIN
+          console.log('🚫 [CODE-VALIDATION] Máximo de intentos alcanzado - Cancelando registro');
+          setAlert({ 
+            message: 'Ha superado el máximo de 3 intentos. El proceso será cancelado y será redirigido al inicio.', 
+            type: 'error' 
+          });
+          
+          // MANTENER isValidating=true para bloquear el botón
+          // Redirigir al inicio después de 3 segundos
+          setTimeout(() => {
+            console.log('🔄 [CODE-VALIDATION] Redirigiendo al login por exceso de intentos');
+            onBack(); // Regresar al inicio del flujo
+          }, 3000);
+          
+          return; // Salir sin liberar isValidating - el botón queda bloqueado
+        } else {
+          // Aún tiene intentos disponibles
+          setAlert({ 
+            message: `Código incorrecto. Le quedan ${maxAttempts - newAttemptCount} intentos.`, 
+            type: 'error' 
+          });
+          setSecurityCode(''); // Limpiar código incorrecto
+          setOtpCode(['', '', '', '', '', '']); // Limpiar inputs OTP
+          inputRefs.current[0]?.focus();
+          setIsValidating(false); // Liberar solo si hay intentos disponibles
+          setIsSaving(false);
+        }
       }
     } catch (error) {
       console.error('💥 [CODE-VALIDATION] Error inesperado:', error);
       setAlert({ message: 'Error de conexión. Intente nuevamente.', type: 'error' });
       setCurrentStep('error');
-    } finally {
-      setIsValidating(false);
+      setIsValidating(false); // Liberar solo en caso de excepción
       setIsSaving(false);
     }
   };
@@ -223,6 +265,7 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
       if (result.success) {
         setAlert({ message: 'Nuevo código enviado correctamente', type: 'success' });
         setCountdown(120); // Reiniciar countdown
+        setAttemptCount(0); // 🔒 Resetear intentos con nuevo código
         setSecurityCode(''); // Limpiar código anterior
         setOtpCode(['', '', '', '', '', '']); // Limpiar inputs OTP
         inputRefs.current[0]?.focus();
@@ -255,11 +298,25 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
 
   const maskPhoneNumber = (phone) => {
     if (!phone) return '***';
-    const str = phone.toString();
-    if (str.length >= 4) {
-      return str.slice(0, -4).replace(/./g, '*') + str.slice(-4);
+    
+    let phoneNumber = phone.toString();
+    
+    // 🔓 Desencriptar si está encriptado (contiene '==' que es típico de Base64)
+    if (phoneNumber.includes('==') || phoneNumber.includes('+') || phoneNumber.includes('/')) {
+      try {
+        console.log('🔓 [CODE-VALIDATION] Desencriptando número de teléfono');
+        phoneNumber = decrypt(phoneNumber);
+        console.log('✅ [CODE-VALIDATION] Número desencriptado correctamente');
+      } catch (error) {
+        console.warn('⚠️ [CODE-VALIDATION] Error desencriptando teléfono:', error);
+      }
     }
-    return str;
+    
+    // Enmascarar: mostrar solo los últimos 4 dígitos
+    if (phoneNumber.length >= 4) {
+      return phoneNumber.slice(0, -4).replace(/./g, '*') + phoneNumber.slice(-4);
+    }
+    return phoneNumber;
   };
 
   return (
@@ -429,8 +486,12 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
                 <div className="space-y-3 pt-1">
                   <button
                     type="submit"
-                    disabled={isValidating || isSaving || securityCode.length !== 6}
-                    className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500/50`}
+                    disabled={isValidating || isSaving || securityCode.length !== 6 || attemptCount >= maxAttempts}
+                    className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                      (isValidating || isSaving || securityCode.length !== 6 || attemptCount >= maxAttempts)
+                        ? 'bg-slate-400'
+                        : 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500/50'
+                    }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-transparent rounded-lg"></div>
                     
@@ -450,10 +511,31 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
                         </svg>
                         <span className="relative z-10 tracking-wide text-xs">Guardando...</span>
                       </>
+                    ) : attemptCount >= maxAttempts ? (
+                      <span className="relative z-10 tracking-wide font-bold text-sm">🔒 Bloqueado - Solicite nuevo código</span>
+                    ) : securityCode.length < 6 ? (
+                      <span className="relative z-10 tracking-wide font-bold text-sm">Ingrese código de {6 - securityCode.length} dígitos</span>
                     ) : (
-                      <span className="relative z-10 tracking-wide font-bold uppercase text-sm"> CONTINUAR </span>
+                      <span className="relative z-10 tracking-wide font-bold uppercase text-sm">CONTINUAR</span>
                     )}
                   </button>
+
+                  {/* 🔒 Indicador de intentos - Solo mostrar cuando hay intentos y no hay alerta de error duplicada */}
+                  {attemptCount > 0 && !alert && (
+                    <div className={`w-full flex justify-center py-2 px-4 rounded-lg backdrop-blur-sm transition-all duration-300 ${
+                      attemptCount === 1 ? 'bg-amber-50/80 border border-amber-200/60' :
+                      attemptCount === 2 ? 'bg-amber-100/80 border border-amber-300/70' :
+                      'bg-red-100/80 border border-red-300/70'
+                    }`}>
+                      <span className={`text-xs font-bold ${
+                        attemptCount === 1 ? 'text-amber-700' :
+                        attemptCount === 2 ? 'text-amber-800' :
+                        'text-red-800'
+                      }`}>
+                        ⚠️ Intento {attemptCount} de {maxAttempts} - {maxAttempts - attemptCount} {maxAttempts - attemptCount === 1 ? 'intento restante' : 'intentos restantes'}
+                      </span>
+                    </div>
+                  )}
 
                   {countdown > 0 ? (
                     <div className="w-full flex justify-center py-2 px-4 bg-slate-100/80 rounded-lg backdrop-blur-sm">
@@ -461,13 +543,19 @@ const SecurityCodeValidationPage = ({ flowData, onComplete, onBack }) => {
                         Reenviar código en {formatTime(countdown)}
                       </span>
                     </div>
+                  ) : attemptCount >= maxAttempts ? (
+                    <div className="w-full flex justify-center py-2 px-4 bg-red-100/80 rounded-lg backdrop-blur-sm border border-red-300/70">
+                      <span className="text-xs font-bold text-red-800">
+                        🚫 Máximo de intentos alcanzado - Redirigiendo...
+                      </span>
+                    </div>
                   ) : (
                     <button
                       type="button"
                       onClick={handleResendCode}
-                      disabled={isValidating || isSaving}
+                      disabled={isValidating || isSaving || attemptCount >= maxAttempts}
                       className={`w-full flex justify-center py-2 px-4 text-xs font-semibold transition-colors duration-200 hover:underline decoration-2 underline-offset-2 ${
-                        isValidating || isSaving ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-800'
+                        (isValidating || isSaving || attemptCount >= maxAttempts) ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-800'
                       }`}
                     >
                       Reenviar código

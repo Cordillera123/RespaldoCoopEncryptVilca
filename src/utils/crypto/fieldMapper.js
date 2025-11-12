@@ -71,7 +71,7 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2140': {
     description: 'Verificar cédula / Validar identidad (registro)',
     encryptFields: ['idecl', 'identificacion', 'cedula'],
-    decryptFields: []
+    decryptFields: ['webusu', 'idecli'] // Backend devuelve webusu e idecli encriptados
   },
 
   '2148': {

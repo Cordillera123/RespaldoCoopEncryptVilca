@@ -98,8 +98,8 @@ const SecurityQuestionsPage1 = ({ registrationData, onNext, onBack }) => {
 
       if (!question.respuesta.trim()) {
         newErrors[`question_${index}_respuesta`] = 'La respuesta es requerida';
-      } else if (question.respuesta.trim().length < 2) {
-        newErrors[`question_${index}_respuesta`] = 'La respuesta debe tener al menos 2 caracteres';
+      } else if (question.respuesta.trim().length < 3) {
+        newErrors[`question_${index}_respuesta`] = 'La respuesta debe tener al menos 3 caracteres';
       }
     });
 
@@ -117,6 +117,12 @@ const SecurityQuestionsPage1 = ({ registrationData, onNext, onBack }) => {
       return;
     }
 
+    // Prevenir múltiples clicks
+    if (isSaving) {
+      console.log('🚫 [QUESTIONS-REG] Click bloqueado - ya procesando');
+      return;
+    }
+
     setIsSaving(true);
     setAlert({ message: 'Preparando información para validación final...', type: 'info' });
 
@@ -127,18 +133,19 @@ const SecurityQuestionsPage1 = ({ registrationData, onNext, onBack }) => {
       console.log('✅ [QUESTIONS-REG] Preguntas configuradas exitosamente');
       setAlert({ message: 'Preguntas configuradas. Continuando con validación final...', type: 'success' });
       
+      // Mantener isSaving=true hasta completar la transición
       setTimeout(() => {
         if (onNext) {
           onNext({
             selectedQuestions: validQuestions
           });
         }
+        // isSaving se mantiene true hasta que el componente se desmonte
       }, 1500);
       
     } catch (error) {
       console.error('💥 [QUESTIONS-REG] Error inesperado:', error);
       setAlert({ message: 'Error al procesar las preguntas de seguridad', type: 'error' });
-    } finally {
       setIsSaving(false);
     }
   };
@@ -331,7 +338,7 @@ const SecurityQuestionsPage1 = ({ registrationData, onNext, onBack }) => {
                         type="text"
                         value={question.respuesta}
                         onChange={(e) => handleQuestionChange(index, 'respuesta', e.target.value)}
-                        placeholder="Ingrese su respuesta (mínimo 2 caracteres)"
+                        placeholder="Ingrese su respuesta (mínimo 3 caracteres)"
                         disabled={isSaving || !question.codigo}
                         className={`w-full px-3 py-2.5 rounded-lg bg-white text-slate-900 placeholder-slate-500 border-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 disabled:opacity-50 font-medium text-sm shadow-sm hover:shadow-md ${
                           errors[`question_${index}_respuesta`] 
@@ -371,8 +378,16 @@ const SecurityQuestionsPage1 = ({ registrationData, onNext, onBack }) => {
               <div className="space-y-3 relative z-10 mt-5">
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                  disabled={
+                    isSaving || 
+                    selectedQuestions.some(q => !q.codigo || !q.respuesta.trim() || q.respuesta.trim().length < 3)
+                  }
+                  className={`group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                    (isSaving || 
+                    selectedQuestions.some(q => !q.codigo || !q.respuesta.trim() || q.respuesta.trim().length < 3))
+                      ? 'bg-slate-400'
+                      : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                  }`}
                 >
                   {isSaving ? (
                     <>
@@ -382,6 +397,10 @@ const SecurityQuestionsPage1 = ({ registrationData, onNext, onBack }) => {
                       </svg>
                       PROCESANDO...
                     </>
+                  ) : selectedQuestions.some(q => !q.codigo) ? (
+                    'Seleccione las 3 preguntas'
+                  ) : selectedQuestions.some(q => !q.respuesta.trim() || q.respuesta.trim().length < 3) ? (
+                    'Complete las respuestas (mín. 3 caracteres)'
                   ) : (
                     'CONTINUAR'
                   )}

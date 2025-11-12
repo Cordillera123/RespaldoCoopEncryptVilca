@@ -189,18 +189,17 @@ const requestSecurityCode = async () => {
         
         // Verificar si se alcanzó el máximo de intentos
         if (newAttemptCount >= maxAttempts) {
-          console.log('🚫 [CODE] Máximo de intentos alcanzado');
-          showAlert(`Ha superado el máximo de ${maxAttempts} intentos. Por favor, solicite un nuevo código.`, 'error');
+          console.log('🚫 [CODE] Máximo de intentos alcanzado - Redirigiendo al login');
+          showAlert(`Ha superado el máximo de ${maxAttempts} intentos. Será redirigido al inicio de sesión.`, 'error');
           
-          // Bloquear y resetear después de 3 segundos
+          // MANTENER isLoading=true para bloquear el botón
+          // Redirigir al login después de 3 segundos
           setTimeout(() => {
-            setCurrentStep('requesting');
-            setAttemptCount(0);
-            setTimeLeft(120);
-            requestSecurityCode(); // Solicitar nuevo código automáticamente
+            console.log('🔄 [CODE] Redirigiendo al login por exceso de intentos');
+            onBackToLogin();
           }, 3000);
           
-          return; // Salir de la función
+          return; // Salir sin liberar isLoading - el botón queda bloqueado
         }
         
         // Determinar mensaje de error específico
@@ -222,16 +221,16 @@ const requestSecurityCode = async () => {
         
         showAlert(errorMessage, 'error');
         
-        // Limpiar código si es incorrecto
+        // Limpiar código si es incorrecto (solo si no se alcanzó el máximo)
         setCodigo('');
         setOtpCode(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
+        setIsLoading(false); // Liberar solo en errores normales
       }
     } catch (error) {
       console.error('💥 [CODE] Error inesperado:', error);
       showAlert('Error validando código', 'error');
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Liberar solo en errores de excepción
     }
   };
 

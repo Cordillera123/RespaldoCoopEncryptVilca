@@ -193,7 +193,13 @@ const BlockUser = ({ onBackToLogin }) => {
       return;
     }
 
-    console.log('🔐 [BLOCK] Validando respuesta para proceder al bloqueo');
+    // Prevenir múltiples clicks
+    if (isLoading) {
+      console.log('� [BLOCK] Click bloqueado - ya procesando');
+      return;
+    }
+
+    console.log('�🔐 [BLOCK] Validando respuesta para proceder al bloqueo');
     setIsLoading(true);
     
     try {
@@ -207,22 +213,23 @@ const BlockUser = ({ onBackToLogin }) => {
         console.log('✅ [BLOCK] Respuesta validada correctamente, procediendo al bloqueo');
         showAlert('Respuesta correcta. Enviando código de seguridad...', 'success');
         
-        // Proceder al código de bloqueo
+        // Mantener isLoading=true durante la transición
         setTimeout(() => {
           handleGoToCode({
             cedula: formData.cedula,
             usuario: userInfo?.webusu,
             clienteInfo: userInfo?.cliente?.[0]
           });
+          // isLoading se mantiene true hasta que el componente se desmonte
         }, 1500);
       } else {
         console.log('❌ [BLOCK] Respuesta incorrecta:', result.error);
         showAlert(result.error.message || 'Respuesta incorrecta', 'error');
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('💥 [BLOCK] Error validando respuesta:', error);
       showAlert('Error validando respuesta', 'error');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -524,7 +531,7 @@ const BlockUser = ({ onBackToLogin }) => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span className="relative z-10 tracking-wide text-xs">Validando...</span>
+                      <span className="relative z-10 tracking-wide text-xs">PROCESANDO...</span>
                     </>
                   ) : !formData.cedula.trim() || (formData.cedula.length !== 10 && formData.cedula.length !== 13) ? (
                     <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Complete cédula o RUC</span>
@@ -535,7 +542,7 @@ const BlockUser = ({ onBackToLogin }) => {
                   ) : !formData.respuesta.trim() ? (
                     <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Ingrese su respuesta</span>
                   ) : (
-                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Continuar</span>
+                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">CONTINUAR</span>
                   )}
                 </button>
               </div>

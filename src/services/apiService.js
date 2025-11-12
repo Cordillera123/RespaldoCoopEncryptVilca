@@ -2479,6 +2479,30 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
 
     const result = await this.makeRequest(identityData);
 
+    // 🔍 VALIDACIÓN: Verificar que la respuesta no sea null
+    if (!result.success) {
+      console.error('❌ [SECURITY-CHANGE] Error en la petición:', result.error);
+      return {
+        success: false,
+        error: {
+          message: result.error?.message || 'Error al validar la identidad',
+          code: 'VALIDATION_ERROR'
+        }
+      };
+    }
+
+    // 🔍 VALIDACIÓN: Verificar que result.data no sea null
+    if (!result.data) {
+      console.error('❌ [SECURITY-CHANGE] El servidor devolvió una respuesta vacía (null)');
+      return {
+        success: false,
+        error: {
+          message: 'El servidor no devolvió información. Verifique que la cédula o RUC sea correcta.',
+          code: 'EMPTY_RESPONSE'
+        }
+      };
+    }
+
     if (result.success) {
       console.log('🔍 [SECURITY-CHANGE] Estado de la respuesta:', result.data.estado);
       console.log('📝 [SECURITY-CHANGE] Mensaje:', result.data.msg);
@@ -6698,4 +6722,4 @@ formatAccountNumberForDisplay(accountNumber) {
 const apiService = new ApiService();
 
 // Exportar para uso en React
-export default apiService;
+export default apiService;  

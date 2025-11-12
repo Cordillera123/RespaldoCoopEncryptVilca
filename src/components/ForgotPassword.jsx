@@ -206,6 +206,12 @@ const ForgotPassword = ({ onBackToLogin }) => {
   const handleValidateIdentity = async (e) => {
     e.preventDefault();
     
+    // Prevenir múltiples clicks
+    if (isLoading) {
+      console.log('🚫 [FORGOT] Click bloqueado - ya procesando');
+      return;
+    }
+    
     if (!formData.cedula.trim()) {
       showAlert('Por favor ingrese su cédula o RUC', 'error');
       return;
@@ -281,22 +287,23 @@ const ForgotPassword = ({ onBackToLogin }) => {
         console.log('✅ [FORGOT] Identidad validada correctamente');
         showAlert('Identidad confirmada. Enviando código de seguridad...', 'success');
         
-        // Proceder al código de seguridad
+        // Mantener isLoading=true durante la transición
         setTimeout(() => {
           handleGoToCode({
             cedula: formData.cedula,
             usuario: formData.username,
             clienteInfo: userInfo?.cliente?.[0]
           });
+          // isLoading se mantiene true hasta que el componente se desmonte
         }, 1500);
       } else {
         console.log('❌ [FORGOT] Validación fallida:', validateResult.error);
         showAlert(validateResult.error.message || 'Respuesta de seguridad incorrecta', 'error');
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('💥 [FORGOT] Error validando identidad:', error);
       showAlert('Error validando identidad', 'error');
-    } finally {
       setIsLoading(false);
     }
   };

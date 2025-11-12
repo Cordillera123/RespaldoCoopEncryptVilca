@@ -1,6 +1,7 @@
 // src/components/SecurityQuestionsPage.jsx - DISEÑO CENTRADO COMPLETO
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../services/apiService.js';
+import { decrypt } from '../utils/crypto/encryptionService.js'; // ✅ Importar decrypt
 import backgroundImage from "/public/assets/images/onu.jpg";
 
 const backgroundStyle = {
@@ -12,6 +13,25 @@ const backgroundStyle = {
 };
 
 const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
+  // 🔓 Helper para desencriptar cédula si viene encriptada
+  const getDecryptedCedula = (cedulaValue) => {
+    if (!cedulaValue) return '';
+    
+    // Detectar si está encriptado (Base64)
+    if (cedulaValue.includes('==') || cedulaValue.includes('/') || cedulaValue.includes('+')) {
+      try {
+        console.log('🔓 [QUESTIONS] Desencriptando cédula');
+        const decrypted = decrypt(cedulaValue);
+        console.log('✅ [QUESTIONS] Cédula desencriptada');
+        return decrypted;
+      } catch (error) {
+        console.warn('⚠️ [QUESTIONS] Error desencriptando cédula:', error);
+        return cedulaValue;
+      }
+    }
+    return cedulaValue;
+  };
+
   const [availableQuestions, setAvailableQuestions] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState([
     { codigo: '', pregunta: '', respuesta: '' },
@@ -98,8 +118,8 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
 
       if (!question.respuesta.trim()) {
         newErrors[`question_${index}_respuesta`] = 'La respuesta es requerida';
-      } else if (question.respuesta.trim().length < 2) {
-        newErrors[`question_${index}_respuesta`] = 'La respuesta debe tener al menos 2 caracteres';
+      } else if (question.respuesta.trim().length < 3) {
+        newErrors[`question_${index}_respuesta`] = 'La respuesta debe tener al menos 3 caracteres';
       }
     });
 
@@ -117,6 +137,9 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
       return;
     }
 
+    // Prevenir múltiples clicks
+    if (isSaving) return;
+
     setIsSaving(true);
     setAlert({ message: 'Solicitando código de seguridad...', type: 'info' });
 
@@ -129,6 +152,7 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
         console.log('✅ [QUESTIONS] Código solicitado exitosamente');
         setAlert({ message: 'Código de seguridad enviado. Continuando...', type: 'success' });
         
+        // Mantener isSaving=true hasta completar la transición
         setTimeout(() => {
           if (onNext) {
             onNext({
@@ -136,16 +160,17 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
               idemsg: codeResult.data.idemsg
             });
           }
+          // No liberar isSaving aquí, el componente se desmonta
         }, 1500);
       } else {
         console.error('❌ [QUESTIONS] Error solicitando código:', codeResult.error);
         setAlert({ message: codeResult.error.message, type: 'error' });
+        setIsSaving(false); // Solo liberar en caso de error
       }
     } catch (error) {
       console.error('💥 [QUESTIONS] Error inesperado:', error);
       setAlert({ message: 'Error al procesar las preguntas de seguridad', type: 'error' });
-    } finally {
-      setIsSaving(false);
+      setIsSaving(false); // Solo liberar en caso de error
     }
   };
 
@@ -255,7 +280,7 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
               {clientData && (
                 <div className="mt-3 bg-cyan-50/90 border-cyan-200/70 text-cyan-900 rounded-lg p-3 border backdrop-blur-sm">
                   <p className="text-cyan-900 text-sm font-bold">
-                    <span className="font-bold">{clientData.nomcli} {clientData.apecli}</span> • Cédula: {clientData.idecli}
+                    <span className="font-bold">{clientData.nomcli} {clientData.apecli}</span> • Cédula: {getDecryptedCedula(clientData.idecli)}
                   </p>
                 </div>
               )}
@@ -337,7 +362,7 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
                         type="text"
                         value={question.respuesta}
                         onChange={(e) => handleQuestionChange(index, 'respuesta', e.target.value)}
-                        placeholder="Ingrese su respuesta (mínimo 2 caracteres)"
+                        placeholder="Ingrese su respuesta (mínimo 3 caracteres)"
                         disabled={isSaving || !question.codigo}
                         className={`w-full px-3 py-2.5 rounded-lg bg-white text-slate-900 placeholder-slate-500 border-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 disabled:opacity-50 font-medium text-sm shadow-sm hover:shadow-md ${
                           errors[`question_${index}_respuesta`] 
@@ -377,8 +402,16 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
               <div className="space-y-3 relative z-10 mt-5">
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                  disabled={
+                    isSaving || 
+                    selectedQuestions.some(q => !q.codigo || !q.respuesta.trim() || q.respuesta.trim().length < 3)
+                  }
+                  className={`group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                    (isSaving || 
+                    selectedQuestions.some(q => !q.codigo || !q.respuesta.trim() || q.respuesta.trim().length < 3))
+                      ? 'bg-slate-400'
+                      : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                  }`}
                 >
                   {isSaving ? (
                     <>
@@ -388,6 +421,10 @@ const SecurityQuestionsPage = ({ clientData, cedula, onNext, onBack }) => {
                       </svg>
                       PROCESANDO...
                     </>
+                  ) : selectedQuestions.some(q => !q.codigo) ? (
+                    'Seleccione las 3 preguntas'
+                  ) : selectedQuestions.some(q => !q.respuesta.trim() || q.respuesta.trim().length < 3) ? (
+                    'Complete las respuestas (mín. 3 caracteres)'
                   ) : (
                     'CONTINUAR'
                   )}

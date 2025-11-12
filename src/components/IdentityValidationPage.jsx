@@ -1,6 +1,7 @@
 // src/components/IdentityValidationPage.jsx - DISEÑO CENTRADO CON TÉRMINOS DESPUÉS DE VALIDACIÓN
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../services/apiService.js';
+import { decrypt } from '../utils/crypto/encryptionService.js'; // ✅ Importar decrypt
 import backgroundImage from "/public/assets/images/onu.jpg";
 
 const backgroundStyle = {
@@ -79,40 +80,84 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleValidateIdentity = async () => {
-    if (!validateForm()) {
-      setAlert({ message: 'Por favor, complete todos los campos requeridos', type: 'error' });
+  const handleValidateIdentity = async (e) => {
+    e.preventDefault();
+    
+    // Validación básica
+    if (!formData.cedula.trim()) {
+      setAlert({ message: 'Por favor, ingrese su cédula o RUC', type: 'error' });
       return;
     }
 
+    if (formData.cedula.length !== 10 && formData.cedula.length !== 13) {
+      setAlert({ message: 'La cédula debe tener 10 dígitos o el RUC 13 dígitos', type: 'error' });
+      return;
+    }
+
+    // Prevenir múltiples clicks
+    if (isLoading) {
+      console.log('⚠️ [IDENTITY] Click bloqueado - Ya hay una petición en proceso');
+      return;
+    }
+
+    console.log('🔒 [IDENTITY] Validando identidad para cambio de preguntas:', formData.cedula);
     setIsLoading(true);
-    setAlert({ message: 'Validando identidad...', type: 'info' });
 
     try {
-      console.log('🔒 [IDENTITY] Validando identidad para cambio de preguntas:', formData.cedula);
-      
       const result = await apiService.validateIdentityForSecurityQuestions(formData.cedula);
-
       console.log('📊 [IDENTITY] Resultado de validación:', result);
 
       if (result.success) {
         console.log('✅ [IDENTITY] Identidad validada correctamente');
         console.log('👤 [IDENTITY] Usuario encontrado:', result.data.usuario);
+        console.log('👤 [IDENTITY] Cliente:', result.data.cliente);
         
-        setClientData(result.data.cliente);
+        // 🔓 Desencriptar idecli si viene encriptado (está dentro de cliente[])
+        let clienteData = result.data.cliente;
+        if (clienteData && clienteData.idecli) {
+          const idecli = clienteData.idecli;
+          // Detectar si es Base64 encriptado
+          if (idecli.length > 15 && (idecli.includes('==') || idecli.includes('/') || idecli.includes('+'))) {
+            try {
+              console.log('🔓 [IDENTITY] Desencriptando idecli:', idecli);
+              clienteData = {
+                ...clienteData,
+                idecli: decrypt(idecli)
+              };
+              console.log('✅ [IDENTITY] idecli desencriptado:', clienteData.idecli);
+            } catch (error) {
+              console.warn('⚠️ [IDENTITY] Error desencriptando idecli:', error);
+            }
+          }
+        }
+        
+        // Guardar datos
+        setClientData(clienteData);
         setUsuario(result.data.usuario);
-        setAlert({ 
-          message: `Cliente validado: ${result.data.cliente?.nomcli || 'Usuario'} ${result.data.cliente?.apecli || ''} - Usuario: ${result.data.usuario}. Ahora debe aceptar los términos y condiciones.`, 
-          type: 'success' 
-        });
-
-        // Pasar automáticamente al paso de términos después de validación exitosa
+        
+        // NO mostrar alert aquí - se mostrará en el siguiente paso
+        console.log('✅ [IDENTITY] Datos guardados, iniciando transición...');
+        
+        // Mantener isLoading=true y hacer transición después de delay
         setTimeout(() => {
+          console.log('🔄 [IDENTITY] Cambiando a paso de términos...');
           setCurrentStep('terms');
           
-        }, 2000);
+          // Mostrar alert DESPUÉS de cambiar de paso
+          setAlert({ 
+            message: `Cliente validado: ${clienteData?.nomcli || 'Usuario'} ${clienteData?.apecli || ''} - Usuario: ${result.data.usuario}. Ahora debe aceptar los términos y condiciones.`, 
+            type: 'success' 
+          });
+          
+          // Liberar isLoading solo después de completar transición
+          setIsLoading(false);
+        }, 1500); // Reducido a 1.5 segundos como en ForgotPassword
+        
       } else {
         console.log('❌ [IDENTITY] Error en validación:', result.error);
+        
+        // Liberar isLoading inmediatamente en caso de error
+        setIsLoading(false);
         
         if (result.error.code === 'NO_USER_REGISTERED') {
           setAlert({ 
@@ -124,11 +169,6 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
             message: 'No se encontró ningún cliente con esta cédula en nuestros registros.', 
             type: 'error' 
           });
-        } else if (result.error.code === 'USER_ALREADY_EXISTS') {
-          setAlert({ 
-            message: result.error.message || 'Error al validar la identidad', 
-            type: 'error' 
-          });
         } else {
           setAlert({ 
             message: result.error.message || 'Error al validar la identidad', 
@@ -138,18 +178,18 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
       }
     } catch (error) {
       console.error('💥 [IDENTITY] Error inesperado:', error);
+      setIsLoading(false);
       setAlert({ 
         message: 'Error de conexión. Intente nuevamente.', 
         type: 'error' 
       });
-    } finally {
-      setIsLoading(false);
     }
+    // ⚠️ NO usar finally - queremos controlar isLoading manualmente
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    handleValidateIdentity();
+    handleValidateIdentity(e);
   };
 
   const handleTermsSubmit = () => {
@@ -158,8 +198,12 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
       return;
     }
     
+    // Prevenir múltiples clicks
+    if (isLoading) return;
+    
+    setIsLoading(true);
     console.log('✅ [TERMS] Términos aceptados, procediendo con el flujo');
-    setAlert({ message: 'Términos aceptados. Continuando...', type: 'success' });
+    // ⚠️ No mostrar alert para evitar interferencias - el botón muestra el estado
     
     setTimeout(() => {
       if (onNext) {
@@ -310,8 +354,18 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
                 <div className="space-y-3">
                   <button
                     type="submit"
-                    disabled={isLoading || !formData.cedula.trim()}
-                    className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                    disabled={
+                      isLoading || 
+                      !formData.cedula.trim() || 
+                      (formData.cedula.length !== 10 && formData.cedula.length !== 13)
+                    }
+                    className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                      (isLoading || 
+                      !formData.cedula.trim() || 
+                      (formData.cedula.length !== 10 && formData.cedula.length !== 13))
+                        ? 'bg-slate-400'
+                        : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                    }`}
                   >
                     {isLoading ? (
                       <>
@@ -321,6 +375,10 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
                         </svg>
                         Validando identidad...
                       </>
+                    ) : !formData.cedula.trim() ? (
+                      'Ingrese cédula o RUC'
+                    ) : (formData.cedula.length !== 10 && formData.cedula.length !== 13) ? (
+                      'Cédula o RUC incompleto'
                     ) : (
                       'VALIDAR IDENTIDAD'
                     )}
@@ -490,10 +548,24 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
             <div className="space-y-3">
               <button
                 onClick={handleTermsSubmit}
-                disabled={!acceptedTerms}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                disabled={!acceptedTerms || isLoading}
+                className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                  (!acceptedTerms || isLoading)
+                    ? 'bg-slate-400'
+                    : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                }`}
               >
-                CONTINUAR CON PREGUNTAS DE SEGURIDAD
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Procesando...
+                  </>
+                ) : (
+                  'CONTINUAR CON PREGUNTAS DE SEGURIDAD'
+                )}
               </button>
             </div>
           </div>

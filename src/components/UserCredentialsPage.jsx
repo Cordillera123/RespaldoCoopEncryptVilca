@@ -204,9 +204,22 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
       return;
     }
     
-    setCurrentStep('credentials');
-    setAlert({ message: 'Ahora configure sus credenciales de acceso', type: 'success' });
-    setTimeout(() => setAlert(null), 3000);
+    // Prevenir múltiples clicks
+    if (isLoading) {
+      console.log('⚠️ [CREDENTIALS] Click bloqueado - Ya hay una transición en proceso');
+      return;
+    }
+    
+    setIsLoading(true);
+    console.log('✅ [CREDENTIALS] Términos aceptados, procediendo a credenciales');
+    
+    // Mantener isLoading durante la transición
+    setTimeout(() => {
+      setCurrentStep('credentials');
+      setAlert({ message: 'Ahora configure sus credenciales de acceso', type: 'success' });
+      setIsLoading(false);
+      setTimeout(() => setAlert(null), 3000);
+    }, 500);
   };
 
   const handleCredentialsSubmit = async (e) => {
@@ -219,8 +232,14 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
       return;
     }
 
+    // Prevenir múltiples clicks
+    if (isLoading) {
+      console.log('⚠️ [CREDENTIALS] Click bloqueado - Ya hay una petición en proceso');
+      return;
+    }
+
     setIsLoading(true);
-    setAlert({ message: 'Validando credenciales finales...', type: 'info' });
+    // ⚠️ No mostrar alert aquí - el botón muestra el estado
 
     try {
       // Validación final de usuario y contraseña
@@ -231,8 +250,8 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
 
       if (userResult.success && passwordResult.success) {
         console.log('✅ [CREDENTIALS] Credenciales validadas exitosamente');
-        setAlert({ message: 'Credenciales válidas. Continuando...', type: 'success' });
         
+        // Mantener isLoading=true durante la transición
         setTimeout(() => {
           if (onNext) {
             onNext({
@@ -240,17 +259,20 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
               password: formData.password
             });
           }
+          // No liberar isLoading aquí - el componente se desmonta
         }, 1500);
       } else {
+        // Liberar isLoading inmediatamente en caso de error
+        setIsLoading(false);
         const error = !userResult.success ? userResult.error : passwordResult.error;
         setAlert({ message: error.message, type: 'error' });
       }
     } catch (error) {
       console.error('💥 [CREDENTIALS] Error inesperado:', error);
-      setAlert({ message: 'Error al validar las credenciales. Intente nuevamente.', type: 'error' });
-    } finally {
       setIsLoading(false);
+      setAlert({ message: 'Error al validar las credenciales. Intente nuevamente.', type: 'error' });
     }
+    // ⚠️ Sin finally - control manual de isLoading
   };
 
   // STEP 1: TÉRMINOS Y CONDICIONES
@@ -439,10 +461,24 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
               <div className="space-y-3">
                 <button
                   onClick={handleTermsSubmit}
-                  disabled={!acceptedTerms}
-                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                  disabled={!acceptedTerms || isLoading}
+                  className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                    (!acceptedTerms || isLoading)
+                      ? 'bg-slate-400'
+                      : 'bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50'
+                  }`}
                 >
-                  CONTINUAR CON CREDENCIALES
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Procesando...
+                    </>
+                  ) : (
+                    'CONTINUAR CON CREDENCIALES'
+                  )}
                 </button>
               </div>
             </div>
@@ -772,8 +808,26 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
               <div className="space-y-3 pt-1">
                 <button
                   type="submit"
-                  disabled={isLoading || !formData.username || !formData.password || !formData.confirmPassword}
-                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                  disabled={
+                    isLoading || 
+                    !formData.username || 
+                    !formData.password || 
+                    !formData.confirmPassword ||
+                    validationStatus.username.valid !== true ||
+                    validationStatus.password.valid !== true ||
+                    formData.password !== formData.confirmPassword
+                  }
+                  className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                    (isLoading || 
+                    !formData.username || 
+                    !formData.password || 
+                    !formData.confirmPassword ||
+                    validationStatus.username.valid !== true ||
+                    validationStatus.password.valid !== true ||
+                    formData.password !== formData.confirmPassword)
+                      ? 'bg-slate-400'
+                      : 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500/50'
+                  }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-transparent rounded-lg"></div>
                   {isLoading ? (
@@ -784,6 +838,14 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
                       </svg>
                       <span className="relative z-10 tracking-wide text-xs">VALIDANDO...</span>
                     </>
+                  ) : !formData.username || !formData.password || !formData.confirmPassword ? (
+                    <span className="relative z-10 tracking-wide font-bold text-sm">Complete todos los campos</span>
+                  ) : validationStatus.username.valid !== true ? (
+                    <span className="relative z-10 tracking-wide font-bold text-sm">Usuario no disponible</span>
+                  ) : validationStatus.password.valid !== true ? (
+                    <span className="relative z-10 tracking-wide font-bold text-sm">Contraseña no válida</span>
+                  ) : formData.password !== formData.confirmPassword ? (
+                    <span className="relative z-10 tracking-wide font-bold text-sm">Las contraseñas no coinciden</span>
                   ) : (
                     <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Continuar con Preguntas</span>
                   )}

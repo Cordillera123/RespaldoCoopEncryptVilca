@@ -121,8 +121,14 @@ const RegisterPage = ({ onNext, onBack }) => {
       return;
     }
 
+    // Prevenir múltiples clicks
+    if (isLoading) {
+      console.log('⚠️ [REGISTER] Click bloqueado - Ya hay una petición en proceso');
+      return;
+    }
+
     setIsLoading(true);
-    setAlert({ message: 'Validando identidad...', type: 'info' });
+    // ⚠️ No mostrar alert aquí - el botón muestra el estado
 
     try {
       const result = await apiService.validateIdentityForUserRegistration(cedula);
@@ -132,18 +138,41 @@ const RegisterPage = ({ onNext, onBack }) => {
       if (result.success) {
         // Cliente sin usuario registrado - puede proceder
         console.log('✅ [REGISTER] Cliente válido sin usuario, procediendo...');
-        setAlert({ message: 'Identidad validada correctamente. Continuando...', type: 'success' });
         
+        // 🔓 Desencriptar idecli si viene encriptado
+        let clienteData = result.data.cliente;
+        if (clienteData && clienteData.idecli) {
+          const idecli = clienteData.idecli;
+          if (idecli.length > 15 && (idecli.includes('==') || idecli.includes('/') || idecli.includes('+'))) {
+            try {
+              console.log('🔓 [REGISTER] Desencriptando idecli:', idecli);
+              const { decrypt } = await import('../utils/crypto/encryptionService.js');
+              clienteData = {
+                ...clienteData,
+                idecli: decrypt(idecli)
+              };
+              console.log('✅ [REGISTER] idecli desencriptado:', clienteData.idecli);
+            } catch (error) {
+              console.warn('⚠️ [REGISTER] Error desencriptando idecli:', error);
+            }
+          }
+        }
+        
+        // Mantener isLoading=true durante la transición
         setTimeout(() => {
           if (onNext) {
             onNext({
               cedula: cedula,
-              clienteData: result.data.cliente
+              clienteData: clienteData
             });
           }
+          // No liberar isLoading aquí - el componente se desmonta
         }, 1500);
         
       } else {
+        // Liberar isLoading inmediatamente en caso de error
+        setIsLoading(false);
+        
         // Manejar diferentes tipos de error
         let errorMessage = result.error.message;
         let errorType = 'error';
@@ -162,13 +191,13 @@ const RegisterPage = ({ onNext, onBack }) => {
       }
     } catch (error) {
       console.error('💥 [REGISTER] Error inesperado:', error);
+      setIsLoading(false);
       setAlert({ 
         message: 'Error de conexión. Verifique su internet e intente nuevamente.', 
         type: 'error' 
       });
-    } finally {
-      setIsLoading(false);
     }
+    // ⚠️ Sin finally - control manual de isLoading
   };
 
   return (
@@ -312,7 +341,11 @@ const RegisterPage = ({ onNext, onBack }) => {
                 <button
                   type="submit"
                   disabled={isLoading || !cedula || (cedula.length !== 10 && cedula.length !== 13)}
-                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
+                  className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed ${
+                    (isLoading || !cedula || (cedula.length !== 10 && cedula.length !== 13))
+                      ? 'bg-slate-400'
+                      : 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500/50'
+                  }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-transparent rounded-lg"></div>
                   {isLoading ? (
@@ -323,8 +356,12 @@ const RegisterPage = ({ onNext, onBack }) => {
                       </svg>
                       <span className="relative z-10 tracking-wide text-xs">Validando...</span>
                     </>
+                  ) : !cedula ? (
+                    <span className="relative z-10 tracking-wide font-bold text-sm">Ingrese cédula o RUC</span>
+                  ) : (cedula.length !== 10 && cedula.length !== 13) ? (
+                    <span className="relative z-10 tracking-wide font-bold text-sm">Cédula o RUC incompleto</span>
                   ) : (
-                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">Continuar</span>
+                    <span className="relative z-10 tracking-wide font-bold uppercase text-sm">CONTINUAR</span>
                   )}
                 </button>
 
