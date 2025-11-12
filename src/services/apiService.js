@@ -2205,8 +2205,9 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
       };
     }
 
+    // ✅ SEGÚN DOCUMENTACIÓN: Proceso 2156 solo necesita idecl, idemsg, codseg
     const validateData = {
-      prccode: '2156', // Código para validar código de seguridad
+      prccode: '2156',
       idecl: cedula.trim(),
       idemsg: idemsg.trim(),
       codseg: codigo.trim()

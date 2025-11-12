@@ -684,7 +684,8 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
   // Función para detectar si es CACVIL (Cooperativa Vilcabamba)
   const detectIfCoopVilcabamba = (bankCode) => {
   // Lista de códigos que corresponden a CACVIL - Cooperativa Vilcabamba
-  const cacvilCodes = ['CACVIL', '999']; // Códigos de CACVIL
+  // '136' es el código oficial de CACVIL en el backend
+  const cacvilCodes = ['136', 'CACVIL', '999'];
   
   // Obtener información del banco por código
   const bankInfo = banks.find(b => b.code === bankCode);
@@ -693,7 +694,7 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
   console.log('🔍 [NEW-CONTACT] Verificando banco:', { bankCode, bankName });
   
   // Verificar por código o por nombre
-  const isByCode = cacvilCodes.includes(bankCode);
+  const isByCode = cacvilCodes.includes(bankCode) || cacvilCodes.includes(bankCode?.toString());
   const isByName = bankName.toUpperCase().includes('CACVIL') || 
                    bankName.toUpperCase().includes('VILCABAMBA') ||
                    bankName.toUpperCase().includes('COOPERATIVA VILCABAMBA');

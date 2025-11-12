@@ -48,9 +48,21 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   '2180': {
-    description: 'Login',
+    description: 'Resumen Financiero (Financial Summary)',
     encryptFields: ['identificacion', 'idecl', 'clave'],
-    decryptFields: ['codcta', 'idecl'] // SIN sufijo E
+    decryptFields: [
+      'codcta', 
+      'idecl',
+      // 🆕 CAMPOS FINANCIEROS PRINCIPALES
+      'balancet',      // Balance total
+      'balanced',      // Balance disponible
+      'ahorrost',      // Ahorros total
+      'ahorrosd',      // Ahorros disponible
+      'inversiones',   // Inversiones total
+      'inversionesd',  // Inversiones disponible
+      'gastosmes',     // Gastos del mes
+      'pordgasto'      // Porcentaje de gastos
+    ]
   },
 
   '2181': {
@@ -100,11 +112,11 @@ export const FIELD_MAPPING_BY_PROCESS = {
   '2156': {
     description: 'Validar código de seguridad OTP',  
     encryptFields: [
-      'idecl',    // ✅ Identificación del cliente (se encripta)
-      'codseg'    // ✅ Código OTP ingresado (se encripta)
+      'idecl',    // ✅ Identificación del cliente
+      'codseg'    // ✅ Código OTP ingresado
       // ❌ idemsg - NO encriptar, ya viene encriptado del backend en proceso 2155
     ],
-    decryptFields: [] // Solo devuelve estado y mensaje, no campos encriptados
+    decryptFields: [] // Solo devuelve estado y mensaje
   },
 
   '2160': {
