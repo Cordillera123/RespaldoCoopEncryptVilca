@@ -1,8 +1,8 @@
 // src/components/LoginPage.jsx - SOLO MEJORA DEL TEXTO PRINCIPAL
 import React, { useState, useEffect, useRef } from "react";
 import apiService from "../services/apiService.js";
-import backgroundImage from "/public/assets/images/onu.jpg";
-import lasNaveslogo1 from "/public/assets/images/logolasnaves_c.png";
+import backgroundImage from "/assets/images/onu.jpg";
+import lasNaveslogo1 from "/assets/images/logolasnaves_c.png";
 
 const backgroundStyle = {
   backgroundImage: `linear-gradient(135deg, rgba(25,47,71,0.25) 0%, rgba(40,70,102,0.20) 30%, rgba(55,93,133,0.15) 70%, rgba(70,116,164,0.10) 100%), url(${backgroundImage})`,

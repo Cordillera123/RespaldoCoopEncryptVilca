@@ -4,7 +4,7 @@ import forgotPasswordService from '../services/forgotPasswordService.js';
 import apiService from '../services/apiService.js'; // ✅ AGREGAR apiService
 import { decrypt } from '../utils/crypto/encryptionService.js'; // ✅ Importar decrypt
 import CodigoPage from './CodigoPage';
-import backgroundImage from "/public/assets/images/onu.jpg";
+import backgroundImage from "/assets/images/onu.jpg";
 
 // Match RegisterPage overlay: dark gradient + background image for opacity/dim effect
 const backgroundStyle = {

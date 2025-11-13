@@ -1,7 +1,7 @@
 // src/components/UserCredentialsPage.jsx - PASO 2: TÉRMINOS Y CREDENCIALES
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../services/apiService.js';
-import backgroundImage from "/public/assets/images/onu.jpg";
+import backgroundImage from "/assets/images/onu.jpg";
 
 const backgroundStyle = {
   backgroundImage: `url(${backgroundImage})`,

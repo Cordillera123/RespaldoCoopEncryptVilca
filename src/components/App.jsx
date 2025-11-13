@@ -449,7 +449,7 @@ if (loading) {
             {/* Contenedor del logo - TAMAÑO GRANDE */}
             <div className="relative w-96 h-96 mx-auto flex items-center justify-center p-4 bg-gray-50 rounded-2xl shadow-sm">
               <img 
-                src="/public/assets/images/logolasnaves_c.png"
+                src="/assets/images/logolasnaves_c.png"
                 alt="Las Naves Cooperativa"
                 className="w-full h-full object-contain animate-logoFloat"
                 onError={(e) => {

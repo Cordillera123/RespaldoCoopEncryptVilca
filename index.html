@@ -8,10 +8,8 @@
     <meta name="keywords" content="banca, cooperativa, ahorro, crédito, online banking" />
     <meta name="author" content="CooperBanca" />
     
-    <!-- Security headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-    <meta http-equiv="X-Frame-Options" content="DENY" />
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <!-- Security headers removidos - deben configurarse en el servidor web (Nginx/Apache) -->
+    <!-- X-Frame-Options, X-Content-Type-Options, X-XSS-Protection deben ir en HTTP headers -->
     
     <!-- Preconnect to external domains for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -170,7 +168,7 @@
       <!-- Logo de Las Naves - TRANSPARENTE SIN MODAL -->
       <div class="logo-container">
         <img 
-          src="/public/assets/images/logolasnaves_c.png" 
+          src="/assets/images/logolasnaves_c.png" 
           alt="Las Naves Cooperativa" 
           class="logo-image"
           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../services/apiService.js';
 import { decrypt } from '../utils/crypto/encryptionService.js'; // ✅ Importar decrypt
-import backgroundImage from "/public/assets/images/onu.jpg";
+import backgroundImage from "/assets/images/onu.jpg";
 
 const backgroundStyle = {
   backgroundImage: `url(${backgroundImage})`,

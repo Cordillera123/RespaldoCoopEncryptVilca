@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService.js';
 import { decrypt } from '../utils/crypto/encryptionService.js'; // Importar función decrypt
 import CodigoPage from './CodigoPage';
-import backgroundImage from "/public/assets/images/onu.jpg";
+import backgroundImage from "/assets/images/onu.jpg";
 
 // Match RegisterPage overlay: dark gradient + background image for opacity/dim effect
 const backgroundStyle = {
