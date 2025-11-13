@@ -15,6 +15,7 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
   const [securityCode, setSecurityCode] = useState('');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [isValidating, setIsValidating] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false); // 🔒 Bloqueo permanente al redirigir
   const [countdown, setCountdown] = useState(120);
   const [errors, setErrors] = useState({});
   const [alert, setAlert] = useState(null);
@@ -123,9 +124,9 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics
-    if (isValidating) {
-      console.log("⚠️ [2FA-UI] Validación ya en proceso, ignorando clic adicional");
+    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics o reintentos después de éxito
+    if (isValidating || isRedirecting) {
+      console.log("⚠️ [2FA-UI] Validación ya en proceso o redirigiendo, ignorando clic adicional");
       return;
     }
     
@@ -152,6 +153,7 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
       return;
     }
 
+    // 🔒 BLOQUEAR BOTÓN INMEDIATAMENTE
     setIsValidating(true);
     setErrors({});
     setAlert(null);
@@ -182,15 +184,21 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
           message: 'Código verificado correctamente. Accediendo al sistema...'
         });
 
+        // 🔒 BLOQUEO PERMANENTE: Activar bandera de redirección
+        setIsRedirecting(true);
+        
         setTimeout(() => {
           onTwoFactorSuccess({
             ...twoFactorData.userData,
             twoFactorVerified: true
           });
+          // isRedirecting permanece true - nunca se desbloquea
         }, 1500);
 
       } else {
+        // ❌ SOLO desbloquear en caso de ERROR
         console.log('❌ [2FA-UI] Error en validación:', result.error);
+        setIsValidating(false);
         setAttempts(prev => prev + 1);
         
         const remainingAttempts = maxAttempts - (attempts + 1);
@@ -215,23 +223,25 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
       }
 
     } catch (error) {
+      // ❌ SOLO desbloquear en caso de ERROR
       console.error('💥 [2FA-UI] Error inesperado:', error);
+      setIsValidating(false);
       setAlert({
         type: 'error',
         message: 'Error de conexión. Inténtalo de nuevo.'
       });
-    } finally {
-      setIsValidating(false);
     }
+    // 🔒 NO HAY finally - mantener bloqueado en caso de éxito
   };
 
   const requestNewCode = async () => {
-    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics en reenvío
-    if (isValidating) {
-      console.log("⚠️ [2FA-UI] Reenvío ya en proceso, ignorando clic adicional");
+    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics o reintentos después de éxito
+    if (isValidating || isRedirecting) {
+      console.log("⚠️ [2FA-UI] Reenvío ya en proceso o redirigiendo, ignorando clic adicional");
       return;
     }
     
+    // 🔒 BLOQUEAR BOTÓN INMEDIATAMENTE
     setIsValidating(true);
     setAlert({ type: 'info', message: 'Solicitando un nuevo código...' });
 
@@ -256,11 +266,16 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
         setSecurityCode('');
         setOtpCode(['', '', '', '', '', '']);
         setErrors({});
+        
+        // ✅ Desbloquear después de éxito en reenvío (no es redirección)
+        setIsValidating(false);
+        
         if (inputRefs.current[0]) {
           inputRefs.current[0].focus();
         }
       } else {
         console.log('❌ [2FA-UI] Error al solicitar nuevo código:', result.error);
+        setIsValidating(false);
         setAlert({
           type: 'error',
           message: result.error.message || 'No se pudo reenviar el código. Intenta volver al login.'
@@ -268,12 +283,11 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
       }
     } catch (error) {
       console.error('💥 [2FA-UI] Error inesperado al reenviar código:', error);
+      setIsValidating(false);
       setAlert({
         type: 'error',
         message: 'Error de conexión al solicitar un nuevo código.'
       });
-    } finally {
-      setIsValidating(false);
     }
   };
 
@@ -424,18 +438,18 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
               <div className="space-y-3 pt-1">
                 <button
                   type="submit"
-                  disabled={isValidating || securityCode.length !== 6}
+                  disabled={isValidating || isRedirecting || securityCode.length !== 6}
                   className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500/50"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-transparent rounded-lg"></div>
                   
-                  {isValidating ? (
+                  {(isValidating || isRedirecting) ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span className="relative z-10 tracking-wide text-xs">Procesando...</span>
+                      <span className="relative z-10 tracking-wide text-xs">{isRedirecting ? 'Accediendo...' : 'Procesando...'}</span>
                     </>
                   ) : (
                     <span className="relative z-10 tracking-wide font-bold uppercase text-sm"> Verificar Código</span>
@@ -452,9 +466,9 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
                   <button
                     type="button"
                     onClick={handleResendCode}
-                    disabled={isValidating}
+                    disabled={isValidating || isRedirecting}
                     className={`w-full flex justify-center py-2 px-4 text-xs font-semibold transition-colors duration-200 hover:underline decoration-2 underline-offset-2 ${
-                      isValidating ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-800'
+                      (isValidating || isRedirecting) ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-800'
                     }`}
                   >
                     Reenviar código

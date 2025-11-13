@@ -32,6 +32,8 @@ import apiService from '../services/apiService.js';
 
 const App = () => {
   
+  console.log('🎬 [APP-RENDER] ===== COMPONENTE APP EJECUTÁNDOSE =====');
+  
   // ⭐ VISTAS DISPONIBLES ACTUALIZADAS
   const [currentView, setCurrentView] = useState('login'); 
   // Vistas disponibles: 
@@ -42,6 +44,8 @@ const App = () => {
   
   const [userSession, setUserSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  console.log('🎬 [APP-RENDER] Estados inicializados:', { currentView, loading });
   
   // ⭐ NUEVO STATE PARA EL FLUJO COMPLETO DE REGISTRO
   const [registrationFlow, setRegistrationFlow] = useState({
@@ -521,6 +525,9 @@ if (loading) {
     </div>
   );
 }
+
+  console.log('🎬 [APP-RENDER] A punto de renderizar componente principal');
+  console.log('🎬 [APP-RENDER] Estado:', { loading, currentView, hasSession: !!userSession });
 
   return (
     <InactivityProvider 

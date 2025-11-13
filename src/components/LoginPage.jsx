@@ -27,6 +27,7 @@ const LoginPage = ({
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false); // 🔒 Bloqueo permanente al redirigir
   const [showPassword, setShowPassword] = useState(false);
   const [alert, setAlert] = useState(null);
   const [isAnimated, setIsAnimated] = useState(false);
@@ -113,9 +114,9 @@ const LoginPage = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics
-    if (isLoading) {
-      console.log("⚠️ [LOGIN] Solicitud ya en proceso, ignorando clic adicional");
+    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics o reintentos después de éxito
+    if (isLoading || isRedirecting) {
+      console.log("⚠️ [LOGIN] Solicitud ya en proceso o redirigiendo, ignorando clic adicional");
       return;
     }
 
@@ -207,17 +208,19 @@ const LoginPage = ({
         }
 
       } else {
+        // ❌ SOLO desbloquear en caso de ERROR
         console.log("❌ [LOGIN] Login falló");
+        setIsLoading(false);
         handleLoginError(result.error);
       }
 
     } catch (error) {
+      // ❌ SOLO desbloquear en caso de ERROR
       console.error("💥 [FATAL] Error inesperado en login:", error);
-      showAlert("Error de conexión. Verifique su conexión a internet e intente nuevamente.", "error");
-    } finally {
-      console.log("🏁 [LOGIN] Proceso de login finalizado");
       setIsLoading(false);
+      showAlert("Error de conexión. Verifique su conexión a internet e intente nuevamente.", "error");
     }
+    // 🔒 NO HAY finally - mantener bloqueado en caso de éxito hasta redirección
   };
 
   const showAlert = (message, type) => {
@@ -567,18 +570,18 @@ const LoginPage = ({
                 <div className="pt-1">
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || isRedirecting}
                     className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:opacity-75 disabled:cursor-not-allowed"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-transparent rounded-lg"></div>
                     
-                    {isLoading ? (
+                    {(isLoading || isRedirecting) ? (
                       <>
                         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span className="relative z-10 tracking-wide text-xs">Verificando...</span>
+                        <span className="relative z-10 tracking-wide text-xs">{isRedirecting ? 'Accediendo...' : 'Verificando...'}</span>
                       </>
                     ) : (
                       <span className="relative z-10 tracking-wide font-bold uppercase text-sm">INICIAR SESIÓN</span>
