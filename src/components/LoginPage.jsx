@@ -113,6 +113,12 @@ const LoginPage = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics
+    if (isLoading) {
+      console.log("⚠️ [LOGIN] Solicitud ya en proceso, ignorando clic adicional");
+      return;
+    }
+
     console.log("🚀 [LOGIN] Iniciando proceso de login");
 
     if (!validateForm()) {

@@ -99,6 +99,7 @@ INVESTMENT_CALCULATION: '2373',
   INTERNAL_TRANSFER_ACCOUNTS: '2300',     // Obtener cuentas para transferencias
   VALIDATE_TRANSFER_FUNDS: '2350',       // Validar disponibilidad de fondos
   EXECUTE_INTERNAL_TRANSFER: '2355',     // Ejecutar transferencia interna
+  SET_ACCOUNT_TRANSFER_LIMIT: '2303',    // Configurar cupo máximo de transferencia por cuenta
 };
 
 /**
@@ -5952,6 +5953,31 @@ formatAccountNumberForDisplay(accountNumber) {
   }
 
   /**
+   * Obtener cuentas de transferencia del usuario actual
+   * Wrapper que obtiene automáticamente la cédula del usuario en sesión
+   */
+  async getCurrentUserTransferAccounts() {
+    console.log('🏦 [TRANSFER-ACCOUNTS] Obteniendo cuentas del usuario actual...');
+    
+    const cedula = this.getUserCedula();
+    
+    if (!cedula) {
+      return {
+        success: false,
+        error: {
+          message: 'No se pudo obtener la cédula del usuario',
+          code: 'NO_USER_CEDULA'
+        }
+      };
+    }
+
+    console.log('👤 [TRANSFER-ACCOUNTS] Cédula obtenida:', '***' + cedula.slice(-4));
+    
+    // Reutilizar la función existente
+    return await this.getClientAccountsForTransfer(cedula);
+  }
+
+  /**
    * Validar disponibilidad de fondos para transferencia
    * Código de proceso: 2350
    */
@@ -6397,6 +6423,112 @@ formatAccountNumberForDisplay(accountNumber) {
       return str.replace(/(.{4})/g, '$1-').replace(/-$/, ''); // Agregar guiones cada 4 dígitos
     }
     return str;
+  }
+
+  /**
+   * Configurar cupo máximo de transferencia para una cuenta
+   * Código de proceso: 2303
+   * @param {string} cedula - Cédula del usuario
+   * @param {string} codigoCuenta - Código de la cuenta
+   * @param {string} montoMaximo - Monto máximo diario a configurar
+   * @param {string} idemsg - ID del mensaje de validación OTP
+   * @param {string} codigoOTP - Código OTP para validar identidad
+   * @returns {Promise<Object>} Resultado de la configuración
+   */
+  async setAccountTransferLimit(cedula, codigoCuenta, montoMaximo, idemsg, codigoOTP) {
+    console.log('🔧 [CUPO] Configurando cupo máximo de transferencia...');
+    console.log('👤 [CUPO] Cédula:', cedula);
+    console.log('🏦 [CUPO] Cuenta:', codigoCuenta);
+    console.log('💰 [CUPO] Monto máximo:', montoMaximo);
+
+    // Validaciones
+    if (!cedula || !cedula.trim()) {
+      return this.handleError({
+        message: 'Cédula es requerida',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    if (!codigoCuenta || !codigoCuenta.trim()) {
+      return this.handleError({
+        message: 'Código de cuenta es requerido',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    if (!montoMaximo || parseFloat(montoMaximo) <= 0) {
+      return this.handleError({
+        message: 'El monto máximo debe ser mayor a cero',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    if (!idemsg || !idemsg.trim()) {
+      return this.handleError({
+        message: 'ID de mensaje es requerido',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    if (!codigoOTP || !codigoOTP.trim()) {
+      return this.handleError({
+        message: 'Código OTP es requerido',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    try {
+      const limitData = {
+        prccode: this.processCodes.SET_ACCOUNT_TRANSFER_LIMIT,
+        idecl: cedula.trim(),
+        codcta: codigoCuenta.trim(),
+        mxmret: montoMaximo.toString(),
+        idemsg: idemsg.trim(),
+        codseg: codigoOTP.trim()
+      };
+
+      console.log('📤 [CUPO] Enviando configuración:', {
+        ...limitData,
+        idecl: '***' + limitData.idecl.slice(-4),
+        codseg: '******'
+      });
+
+      const result = await this.makeRequest(limitData);
+
+      if (result.success) {
+        console.log('✅ [CUPO] Configuración exitosa:', result.data);
+        
+        return {
+          success: true,
+          data: {
+            cuenta: codigoCuenta,
+            montoMaximo: parseFloat(montoMaximo),
+            mensaje: result.data?.msg || 'Cupo configurado exitosamente'
+          },
+          message: 'Cupo máximo diario configurado correctamente'
+        };
+      } else {
+        console.error('❌ [CUPO] Error en configuración:', result.error);
+        return result;
+      }
+    } catch (error) {
+      console.error('💥 [CUPO] Error inesperado:', error);
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Método de conveniencia para configurar cupo del usuario actual
+   */
+  async setCurrentUserAccountTransferLimit(codigoCuenta, montoMaximo, idemsg, codigoOTP) {
+    const cedula = this.getUserCedula();
+    if (!cedula) {
+      return this.handleError({
+        message: 'No hay usuario autenticado',
+        code: 'NO_SESSION'
+      });
+    }
+    return await this.setAccountTransferLimit(cedula, codigoCuenta, montoMaximo, idemsg, codigoOTP);
   }
 
   // ==========================================

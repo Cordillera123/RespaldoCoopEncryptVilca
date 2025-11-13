@@ -1,146 +1,281 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  MdAccountBalance, 
-  MdEdit, 
-  MdCheckCircle, 
-  MdArrowBack,
-  MdInfo,
-  MdSecurity,
-  MdAttachMoney
-} from 'react-icons/md';
+import React, { useState, useEffect } from 'react';
+import { MdAccountBalance, MdEdit, MdCheckCircle, MdWarning, MdArrowBack } from 'react-icons/md';
+import apiService from '../../services/apiService';
+import { decrypt } from '../../utils/crypto/encryptionService';
 
 /**
- * Componente para personalización de cupos diarios de transferencia
- * Permite al usuario configurar el monto máximo diario por cuenta
+ * Componente para Personalización de Cupos de Transferencia
+ * Permite al usuario configurar el monto máximo diario de transferencia por cuenta
  */
 const CupoComponent = () => {
   // Estados principales
-  const [currentView, setCurrentView] = useState('select'); // 'select' | 'configure' | 'verify' | 'success'
-  const [loading, setLoading] = useState(false);
+  const [currentView, setCurrentView] = useState('list'); // 'list' | 'configure' | 'otp' | 'success'
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Datos del formulario
-  const [selectedAccount, setSelectedAccount] = useState(null);
-  const [customLimit, setCustomLimit] = useState('');
+
+  // Cuentas y configuración
   const [accounts, setAccounts] = useState([]);
-  
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [maximumAmount, setMaximumAmount] = useState('');
+  const [amountError, setAmountError] = useState('');
+
   // Estados para OTP
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpError, setOtpError] = useState(null);
-  const [attempts, setAttempts] = useState(0);
-  const [canResend, setCanResend] = useState(true);
-  const [countdown, setCountdown] = useState(0);
-  const otpInputRefs = useRef([]);
+  const [idemsg, setIdemsg] = useState('');
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [canResendOTP, setCanResendOTP] = useState(true);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [showOTPInstructions, setShowOTPInstructions] = useState(true);
 
-  // Datos simulados de cuentas (esto se reemplazará con API real)
+  // Información del usuario
+  const [userCedula, setUserCedula] = useState('');
+
+  const maxAttempts = 3;
+  const otpInputRefs = React.useRef([]);
+
+  // Cargar cuentas al montar
   useEffect(() => {
-    loadAccounts();
+    loadTransferAccounts();
   }, []);
 
-  const loadAccounts = async () => {
-    setLoading(true);
+  // Countdown para reenvío de OTP
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => {
+        setResendCountdown(resendCountdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (resendCountdown === 0 && !canResendOTP) {
+      setCanResendOTP(true);
+    }
+  }, [resendCountdown, canResendOTP]);
+
+  /**
+   * Cargar cuentas habilitadas para transferencia (API 2300)
+   */
+  const loadTransferAccounts = async () => {
     try {
-      // TODO: Reemplazar con llamada a API real
-      // Simulación de cuentas con cupos actuales
-      const mockAccounts = [
-        {
-          id: '12009333652',
-          name: 'Cuenta De Ahorros Nacional',
-          number: '12009333652',
-          balance: 115.75,
-          currentLimit: null, // Sin cupo personalizado
-          defaultLimit: 1000 // Límite por defecto del sistema
-        },
-        {
-          id: '12009333653',
-          name: 'Cuenta Corriente',
-          number: '12009333653',
-          balance: 2500.00,
-          currentLimit: 500, // Cupo personalizado
-          defaultLimit: 1000
-        },
-        {
-          id: '12009333654',
-          name: 'Cuenta De Ahorros Pro',
-          number: '12009333654',
-          balance: 5000.00,
-          currentLimit: null,
-          defaultLimit: 1000
-        }
-      ];
-      
-      setAccounts(mockAccounts);
-    } catch (error) {
-      console.error('Error cargando cuentas:', error);
-      setError('No se pudieron cargar las cuentas');
+      setLoading(true);
+      setError(null);
+
+      console.log('🏦 [CUPO] Cargando cuentas habilitadas para transferencia...');
+
+      // Obtener cédula del usuario
+      const cedula = apiService.getUserCedula();
+      if (!cedula) {
+        throw new Error('No se pudo obtener la cédula del usuario');
+      }
+      setUserCedula(cedula);
+
+      // Llamar a API 2300 para obtener cuentas
+      const result = await apiService.getCurrentUserTransferAccounts(cedula);
+
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Error al cargar cuentas');
+      }
+
+      // Procesar y desencriptar cuentas
+      if (result.data?.cliente?.cuentas && Array.isArray(result.data.cliente.cuentas)) {
+        const cuentasFormateadas = result.data.cliente.cuentas.map((cuenta, index) => {
+          // 🔓 Desencriptar código de cuenta
+          let codctaDecrypted = cuenta.codcta;
+          try {
+            codctaDecrypted = decrypt(cuenta.codcta);
+            if (index === 0) {
+              console.log(`🔓 [CUPO] Desencriptando codcta: ${cuenta.codcta.substring(0, 20)}... -> ${codctaDecrypted}`);
+            }
+          } catch (error) {
+            console.error('❌ [CUPO] Error al desencriptar codcta:', error);
+          }
+
+          // 🔓 Desencriptar saldos si vienen encriptados
+          let saldisDecrypted = cuenta.saldis;
+          let salcntDecrypted = cuenta.salcnt;
+          let mxmretDecrypted = cuenta.mxmret; // Cupo máximo actual
+
+          // Desencriptar saldo disponible
+          if (typeof cuenta.saldis === 'string' && cuenta.saldis.length > 10 && cuenta.saldis.includes('=')) {
+            try {
+              saldisDecrypted = decrypt(cuenta.saldis);
+              if (index === 0) {
+                console.log(`🔓 [CUPO] Desencriptando saldis: ${cuenta.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CUPO] Error al desencriptar saldis:', error);
+            }
+          }
+
+          // Desencriptar saldo contable
+          if (typeof cuenta.salcnt === 'string' && cuenta.salcnt.length > 10 && cuenta.salcnt.includes('=')) {
+            try {
+              salcntDecrypted = decrypt(cuenta.salcnt);
+              if (index === 0) {
+                console.log(`🔓 [CUPO] Desencriptando salcnt: ${cuenta.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CUPO] Error al desencriptar salcnt:', error);
+            }
+          }
+
+          // Desencriptar cupo máximo si está encriptado
+          if (typeof cuenta.mxmret === 'string' && cuenta.mxmret.length > 10 && cuenta.mxmret.includes('=')) {
+            try {
+              mxmretDecrypted = decrypt(cuenta.mxmret);
+              if (index === 0) {
+                console.log(`🔓 [CUPO] Desencriptando mxmret: ${cuenta.mxmret.substring(0, 20)}... -> ${mxmretDecrypted}`);
+              }
+            } catch (error) {
+              console.error('❌ [CUPO] Error al desencriptar mxmret:', error);
+            }
+          }
+
+          const saldoDisp = parseFloat(saldisDecrypted) || 0;
+          const saldoCont = parseFloat(salcntDecrypted) || 0;
+          const cupoMaximo = parseFloat(mxmretDecrypted) || 0;
+
+          if (index === 0) {
+            console.log('💰 [CUPO] Datos procesados:', {
+              cuenta: codctaDecrypted,
+              saldoDisponible: saldoDisp,
+              saldoContable: saldoCont,
+              cupoMaximo: cupoMaximo
+            });
+          }
+
+          return {
+            id: codctaDecrypted,
+            numeroCuenta: codctaDecrypted,
+            tipo: cuenta.desdep || cuenta.descri || 'Cuenta',
+            estado: cuenta.desect || 'ACTIVA',
+            saldoDisponible: saldoDisp,
+            saldoContable: saldoCont,
+            cupoMaximo: cupoMaximo,
+            cupoPersonalizado: cupoMaximo > 0, // Si tiene cupo > 0, ya está personalizado
+            // Guardar datos originales encriptados para envío posterior
+            _originalData: {
+              codcta: cuenta.codcta, // Encriptado
+              codctaDecrypted: codctaDecrypted // Desencriptado
+            }
+          };
+        });
+
+        setAccounts(cuentasFormateadas);
+        console.log(`✅ [CUPO] ${cuentasFormateadas.length} cuentas cargadas correctamente`);
+      } else {
+        throw new Error('No se encontraron cuentas habilitadas para transferencia');
+      }
+
+    } catch (err) {
+      console.error('❌ [CUPO] Error cargando cuentas:', err);
+      setError(err.message || 'Error al cargar cuentas');
     } finally {
       setLoading(false);
     }
   };
 
-  // Manejo de selección de cuenta
+  /**
+   * Seleccionar cuenta para configurar
+   */
   const handleSelectAccount = (account) => {
+    console.log('📝 [CUPO] Cuenta seleccionada:', account.numeroCuenta);
     setSelectedAccount(account);
-    setCustomLimit(account.currentLimit || '');
+    setMaximumAmount(account.cupoMaximo > 0 ? account.cupoMaximo.toString() : '');
+    setAmountError('');
     setCurrentView('configure');
   };
 
-  // Manejo de cambio de monto
-  const handleLimitChange = (e) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    setCustomLimit(value);
+  /**
+   * Validar monto ingresado
+   */
+  const validateAmount = (amount) => {
+    const numAmount = parseFloat(amount);
+
+    if (!amount || amount.trim() === '') {
+      return 'Ingrese un monto';
+    }
+
+    if (isNaN(numAmount)) {
+      return 'Ingrese un monto válido';
+    }
+
+    if (numAmount <= 0) {
+      return 'El monto debe ser mayor a 0';
+    }
+
+    if (numAmount > selectedAccount.saldoDisponible) {
+      return `El monto no puede superar el saldo disponible ($${selectedAccount.saldoDisponible.toLocaleString('es-EC', { minimumFractionDigits: 2 })})`;
+    }
+
+    return '';
   };
 
-  // Continuar a verificación OTP
-  const handleContinueToVerify = () => {
-    if (!customLimit || parseFloat(customLimit) <= 0) {
-      setError('Ingrese un monto válido');
+  /**
+   * Continuar a validación OTP
+   */
+  const handleContinueToOTP = () => {
+    const error = validateAmount(maximumAmount);
+    if (error) {
+      setAmountError(error);
       return;
     }
-    
-    if (parseFloat(customLimit) > selectedAccount.balance) {
-      setError('El monto no puede ser mayor al saldo disponible');
-      return;
-    }
-    
-    setError(null);
-    setCurrentView('verify');
+
+    setAmountError('');
+    setCurrentView('otp');
+    setShowOTPInstructions(true);
   };
 
-  // Solicitar código OTP
-  const handleRequestOTP = async () => {
-    setLoading(true);
-    setOtpError(null);
-    
+  /**
+   * Solicitar código OTP
+   */
+  const requestOTPCode = async () => {
     try {
-      // TODO: Implementar llamada a API para solicitar OTP
-      console.log('📧 Solicitando código OTP...');
-      
-      // Simulación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setOtpSent(true);
-      setCanResend(false);
-      setCountdown(60);
-      
-      console.log('✅ Código OTP enviado');
-    } catch (error) {
-      console.error('Error solicitando OTP:', error);
-      setOtpError('No se pudo enviar el código. Intente nuevamente.');
+      setOtpLoading(true);
+      setOtpError('');
+
+      console.log('📧 [CUPO] Solicitando código OTP...');
+
+      const result = await apiService.requestSecurityCodeForRegistration(userCedula);
+
+      if (result.success) {
+        setIdemsg(result.data.idemsg);
+        setOtpRequested(true);
+        setShowOTPInstructions(false);
+        setCanResendOTP(false);
+        setResendCountdown(60);
+        
+        console.log('✅ [CUPO] Código OTP enviado exitosamente');
+        console.log('📱 [CUPO] idemsg:', result.data.idemsg);
+
+        // Focus en primer input
+        setTimeout(() => {
+          if (otpInputRefs.current[0]) {
+            otpInputRefs.current[0].focus();
+          }
+        }, 100);
+      } else {
+        throw new Error(result.error?.message || 'Error al solicitar código OTP');
+      }
+    } catch (err) {
+      console.error('❌ [CUPO] Error solicitando OTP:', err);
+      setOtpError(err.message || 'Error al solicitar código de verificación');
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
     }
   };
 
-  // Manejo de cambio en inputs OTP
+  /**
+   * Manejar cambio en inputs de OTP
+   */
   const handleOTPChange = (index, value) => {
-    if (value.length > 1) value = value[0];
     if (!/^\d*$/.test(value)) return;
 
-    const newOTP = [...otpCode];
-    newOTP[index] = value;
-    setOtpCode(newOTP);
+    const newOtpCode = [...otpCode];
+    newOtpCode[index] = value;
+    setOtpCode(newOtpCode);
+    setOtpError('');
 
     // Auto-focus al siguiente input
     if (value && index < 5) {
@@ -148,501 +283,598 @@ const CupoComponent = () => {
     }
   };
 
-  // Manejo de tecla en inputs OTP
+  /**
+   * Manejar tecla en inputs de OTP
+   */
   const handleOTPKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
       otpInputRefs.current[index - 1]?.focus();
     }
   };
 
-  // Validar código OTP
+  /**
+   * Validar OTP y configurar cupo (API 2303)
+   */
   const handleValidateOTP = async () => {
     const fullCode = otpCode.join('');
-    
+
     if (fullCode.length !== 6) {
       setOtpError('Por favor ingrese el código completo de 6 dígitos');
       return;
     }
 
-    setLoading(true);
-    setOtpError(null);
+    if (!idemsg) {
+      setOtpError('No hay identificador de mensaje. Solicite un nuevo código.');
+      return;
+    }
 
     try {
-      // TODO: Implementar validación de OTP con API
-      console.log('🔐 Validando código OTP:', fullCode);
-      
-      // Simulación
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // TODO: Aquí iría la llamada real a la API para actualizar el cupo
-      console.log('✅ Cupo actualizado exitosamente');
-      
-      setCurrentView('success');
-    } catch (error) {
-      console.error('Error validando OTP:', error);
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      
-      if (newAttempts >= 3) {
-        setOtpError('Ha superado el número máximo de intentos. El proceso se cancelará.');
-        setTimeout(() => {
-          handleBackToSelect();
-        }, 3000);
-      } else {
-        setOtpError(`Código incorrecto. Intentos restantes: ${3 - newAttempts}`);
-        setOtpCode(['', '', '', '', '', '']);
-        otpInputRefs.current[0]?.focus();
+      setOtpLoading(true);
+      setOtpError('');
+
+      console.log('🔐 [CUPO] Validando código OTP...');
+
+      // Primero validar el OTP
+      const validateResult = await apiService.validateSecurityCodeForRegistration(
+        userCedula,
+        idemsg,
+        fullCode
+      );
+
+      if (!validateResult.success) {
+        const newAttempts = otpAttempts + 1;
+        setOtpAttempts(newAttempts);
+
+        if (newAttempts >= maxAttempts) {
+          setOtpError(`Código incorrecto. Ha superado el máximo de ${maxAttempts} intentos. El proceso se cancelará.`);
+          setTimeout(() => {
+            handleBackToList();
+          }, 3000);
+        } else {
+          setOtpError(
+            validateResult.error?.message || 
+            `Código incorrecto. Te quedan ${maxAttempts - newAttempts} intentos.`
+          );
+          setOtpCode(['', '', '', '', '', '']);
+          otpInputRefs.current[0]?.focus();
+        }
+        return;
       }
+
+      console.log('✅ [CUPO] Código OTP validado correctamente');
+
+      // Ahora configurar el cupo usando API 2303
+      console.log('💾 [CUPO] Configurando cupo máximo...');
+      console.log('📋 [CUPO] Parámetros:', {
+        cedula: '***' + userCedula.slice(-4),
+        cuenta: selectedAccount.numeroCuenta,
+        monto: maximumAmount,
+        idemsg: idemsg,
+        codigo: fullCode
+      });
+      
+      const configResult = await apiService.setAccountTransferLimit(
+        userCedula,
+        selectedAccount._originalData.codcta, // Usar cuenta encriptada
+        parseFloat(maximumAmount),
+        idemsg, // ID del mensaje OTP
+        fullCode // Código OTP validado
+      );
+
+      if (configResult.success) {
+        console.log('✅ [CUPO] Cupo configurado exitosamente');
+        
+        // Mostrar vista de éxito
+        setCurrentView('success');
+        
+        // Recargar cuentas en segundo plano
+        setTimeout(() => {
+          loadTransferAccounts();
+        }, 1000);
+      } else {
+        throw new Error(configResult.error?.message || 'Error al configurar el cupo');
+      }
+
+    } catch (err) {
+      console.error('❌ [CUPO] Error en validación:', err);
+      setOtpError(err.message || 'Error al validar el código');
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
     }
   };
 
-  // Countdown para reenvío de OTP
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (countdown === 0 && !canResend) {
-      setCanResend(true);
-    }
-  }, [countdown, canResend]);
-
-  // Navegación
-  const handleBackToSelect = () => {
-    setCurrentView('select');
+  /**
+   * Volver a lista principal
+   */
+  const handleBackToList = () => {
+    setCurrentView('list');
     setSelectedAccount(null);
-    setCustomLimit('');
-    setError(null);
+    setMaximumAmount('');
+    setAmountError('');
     setOtpCode(['', '', '', '', '', '']);
-    setOtpSent(false);
-    setOtpError(null);
-    setAttempts(0);
+    setIdemsg('');
+    setOtpRequested(false);
+    setOtpError('');
+    setOtpAttempts(0);
+    setShowOTPInstructions(true);
   };
 
-  const handleBackToConfigure = () => {
-    setCurrentView('configure');
-    setOtpCode(['', '', '', '', '', '']);
-    setOtpSent(false);
-    setOtpError(null);
-  };
+  // ==========================================
+  // RENDERIZADO CONDICIONAL POR VISTA
+  // ==========================================
 
-  // VISTA 1: Selección de cuenta
-  const renderSelectView = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-blue-100">
-          <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-blue-500 to-sky-600 p-4 rounded-xl shadow-lg">
-              <MdAttachMoney className="text-white text-3xl" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                Personaliza tus cupos
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Configura el monto máximo diario de transferencia por cuenta
-              </p>
-            </div>
+  // Vista de carga
+  if (loading) {
+    return (
+      <div className="min-h-full bg-sky-50">
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando cuentas...</p>
           </div>
-        </div>
-
-        {/* Información */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <MdInfo className="text-blue-600 text-xl mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-sm text-blue-800">
-              El cupo personalizado te permite establecer un límite máximo de transferencias diarias para cada cuenta. 
-              Esto te ayuda a mantener un mejor control de tus finanzas.
-            </p>
-          </div>
-        </div>
-
-        {/* Lista de cuentas */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-700 mb-4">
-            Cuenta a configurar
-          </h2>
-
-          {loading ? (
-            <div className="bg-white rounded-xl shadow-md p-8 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Cargando cuentas...</p>
-            </div>
-          ) : accounts.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-md p-8 text-center">
-              <p className="text-gray-600">No hay cuentas disponibles</p>
-            </div>
-          ) : (
-            accounts.map((account) => (
-              <div
-                key={account.id}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden cursor-pointer group"
-                onClick={() => handleSelectAccount(account)}
-              >
-                <div className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="bg-gradient-to-br from-blue-500 to-sky-600 p-3 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                        <MdAccountBalance className="text-white text-2xl" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-800 text-lg">
-                          {account.name}
-                        </h3>
-                        <p className="text-gray-600 text-sm">
-                          Nro. {account.number} | Saldo ${account.balance.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 mb-1">Cupo actual</p>
-                        <p className="font-bold text-lg">
-                          {account.currentLimit ? (
-                            <span className="text-green-600">
-                              ${account.currentLimit.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">
-                              Sin cupo personalizado
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <MdEdit className="text-blue-600 text-2xl group-hover:scale-125 transition-transform duration-300" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  // VISTA 2: Configuración de monto
-  const renderConfigureView = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50 p-6">
-      <div className="max-w-3xl mx-auto">
-        {/* Botón regresar */}
-        <button
-          onClick={handleBackToSelect}
-          className="flex items-center gap-2 text-green-700 hover:text-green-800 mb-6 font-medium transition-colors"
-        >
-          <MdArrowBack className="text-xl" />
-          Regresar
-        </button>
-
-        {/* Información de cuenta seleccionada */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-blue-100">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-gradient-to-br from-blue-500 to-sky-600 p-3 rounded-lg shadow-md">
-              <MdAccountBalance className="text-white text-2xl" />
+  // Vista de error
+  if (error) {
+    return (
+      <div className="min-h-full bg-sky-50">
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center py-12">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+              <MdWarning className="text-red-600 text-4xl mx-auto mb-2" />
+              <p className="text-red-700 mb-4">{error}</p>
+              <button
+                onClick={loadTransferAccounts}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Reintentar
+              </button>
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-800">
-                {selectedAccount?.name}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista de configuración de monto
+  if (currentView === 'configure' && selectedAccount) {
+    return (
+      <div className="min-h-full bg-sky-50">
+        <div className="max-w-4xl mx-auto p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <button
+              onClick={handleBackToList}
+              className="flex items-center text-sky-600 hover:text-sky-700 font-medium mb-4"
+            >
+              <MdArrowBack className="mr-2" />
+              Regresar
+            </button>
+            <div className="text-center">
+              <div className="w-14 h-14 bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <MdEdit className="text-white text-2xl" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-800">Personaliza tu cupo</h1>
+            </div>
+          </div>
+
+          {/* Cuenta seleccionada */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Cuenta a configurar</h2>
+            <div className="flex items-center space-x-4 p-4 bg-sky-50 rounded-lg">
+              <div className="w-12 h-12 bg-gradient-to-r from-sky-500 to-sky-600 rounded-full flex items-center justify-center shadow-md">
+                <MdAccountBalance className="text-white text-xl" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800">{selectedAccount.tipo}</p>
+                <p className="text-xs text-gray-500 font-mono">Nro. {selectedAccount.numeroCuenta}</p>
+                <p className="text-sm text-sky-600 font-semibold mt-1">
+                  Saldo: ${selectedAccount.saldoDisponible.toLocaleString('es-EC', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Formulario de monto */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Monto máximo diario</h2>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ingresa el monto máximo que deseas transferir diariamente desde esta cuenta
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg font-semibold">
+                  $
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={maximumAmount}
+                  onChange={(e) => {
+                    setMaximumAmount(e.target.value);
+                    setAmountError('');
+                  }}
+                  onBlur={() => {
+                    const error = validateAmount(maximumAmount);
+                    setAmountError(error);
+                  }}
+                  placeholder="0.00"
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg text-lg ${
+                    amountError ? 'border-red-500' : 'border-gray-300'
+                  } focus:outline-none focus:ring-2 focus:ring-sky-500`}
+                />
+              </div>
+              {amountError && (
+                <p className="mt-2 text-sm text-red-600">{amountError}</p>
+              )}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-blue-700">
+                  Esta configuración se realizará de forma inmediata. El monto máximo que configures será el límite diario para realizar transferencias desde esta cuenta.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-4">
+              <button
+                onClick={handleBackToList}
+                className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleContinueToOTP}
+                disabled={!maximumAmount || amountError}
+                className="flex-1 px-6 py-3 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-300 text-white rounded-lg font-medium transition-colors"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista de éxito
+  if (currentView === 'success' && selectedAccount) {
+    return (
+      <div className="min-h-full bg-sky-50">
+        <div className="max-w-2xl mx-auto p-6">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+            {/* Icono de éxito animado */}
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <MdCheckCircle className="text-green-600 text-6xl" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                ¡Configuración Exitosa!
               </h2>
               <p className="text-gray-600">
-                Nro. {selectedAccount?.number} | Saldo ${selectedAccount?.balance.toFixed(2)}
+                Tu cupo de transferencia ha sido actualizado correctamente
               </p>
             </div>
-          </div>
-        </div>
 
-        {/* Formulario de configuración */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-blue-100">
-          <h3 className="text-lg font-semibold text-gray-800 mb-6">
-            Monto máximo diario
-          </h3>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Monto máximo diario
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-medium">
-                $
-              </span>
-              <input
-                type="text"
-                value={customLimit}
-                onChange={handleLimitChange}
-                placeholder="0.00"
-                className="w-full pl-10 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all text-lg font-medium"
-              />
-            </div>
-            {error && (
-              <p className="text-red-600 text-sm mt-2 flex items-center gap-1">
-                <MdInfo className="text-base" />
-                {error}
-              </p>
-            )}
-          </div>
-
-          {/* Información de cupo actual */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <MdInfo className="text-blue-600 text-xl mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-2">
-                  {selectedAccount?.currentLimit 
-                    ? `Tu cupo actual es de $${selectedAccount.currentLimit.toFixed(2)}` 
-                    : 'Esta cuenta no tiene un cupo personalizado'}
-                </p>
-                <p>
-                  Esta configuración se realizará de forma inmediata.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Botones de acción */}
-          <div className="flex gap-4">
-            <button
-              onClick={handleBackToSelect}
-              className="flex-1 px-6 py-4 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleContinueToVerify}
-              disabled={!customLimit || parseFloat(customLimit) <= 0}
-              className="flex-1 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-green-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
-            >
-              Continuar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // VISTA 3: Verificación con OTP
-  const renderVerifyView = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50 p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Botón regresar */}
-        <button
-          onClick={handleBackToConfigure}
-          className="flex items-center gap-2 text-green-700 hover:text-green-800 mb-6 font-medium transition-colors"
-        >
-          <MdArrowBack className="text-xl" />
-          Regresar
-        </button>
-
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-blue-100">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-sky-600 p-4 rounded-full w-20 h-20 mx-auto mb-4 shadow-lg">
-              <MdSecurity className="text-white text-4xl" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Confirmar identidad
-            </h2>
-            <p className="text-gray-600">
-              Para tu seguridad, necesitamos verificar tu identidad
-            </p>
-          </div>
-
-          {/* Vista de instrucciones o código OTP */}
-          {!otpSent ? (
-            <div>
-              {/* Resumen de cambios */}
-              <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-6 mb-6 border border-blue-200">
-                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <MdInfo className="text-blue-600" />
-                  Resumen de configuración
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Cuenta:</span>
-                    <span className="font-medium text-gray-800">
-                      {selectedAccount?.number}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Cupo anterior:</span>
-                    <span className="font-medium text-gray-800">
-                      {selectedAccount?.currentLimit 
-                        ? `$${selectedAccount.currentLimit.toFixed(2)}` 
-                        : 'Sin cupo'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t border-blue-200 pt-3">
-                    <span className="text-gray-600">Nuevo cupo diario:</span>
-                    <span className="font-bold text-green-600 text-lg">
-                      ${parseFloat(customLimit).toFixed(2)}
+            {/* Detalles de la configuración */}
+            <div className="bg-gradient-to-r from-sky-50 to-sky-100 rounded-xl p-6 mb-6 border border-sky-200">
+              <h3 className="text-sm font-semibold text-sky-800 mb-4 flex items-center">
+                <MdAccountBalance className="mr-2" />
+                Detalles de la configuración
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">Cuenta configurada:</span>
+                  <span className="text-sm font-mono font-semibold text-gray-900">
+                    {selectedAccount.numeroCuenta}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">Tipo de cuenta:</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {selectedAccount.tipo}
+                  </span>
+                </div>
+                <div className="border-t border-sky-200 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base text-gray-700 font-medium">Cupo máximo diario:</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      ${parseFloat(maximumAmount).toLocaleString('es-EC', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Instrucciones */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-                <p className="text-sm text-yellow-800">
-                  <strong>¿Por qué necesitamos esto?</strong><br />
-                  Por tu seguridad, enviaremos un código de verificación de 6 dígitos a tu correo electrónico registrado.
+            {/* Información adicional */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-800 mb-1">Importante:</p>
+                  <p className="text-sm text-blue-700">
+                    Este límite se aplicará a todas las transferencias realizadas desde esta cuenta durante el día. 
+                    Puedes modificar este cupo en cualquier momento desde esta misma opción.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Botón para finalizar */}
+            <button
+              onClick={handleBackToList}
+              className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <MdCheckCircle className="text-xl" />
+              <span>Aceptar</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista de validación OTP
+  if (currentView === 'otp' && selectedAccount) {
+    return (
+      <div className="min-h-full bg-sky-50">
+        <div className="max-w-2xl mx-auto p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <button
+              onClick={() => setCurrentView('configure')}
+              className="flex items-center text-sky-600 hover:text-sky-700 font-medium mb-4"
+            >
+              <MdArrowBack className="mr-2" />
+              Regresar
+            </button>
+            <div className="text-center">
+              <div className="w-14 h-14 bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h1 className="text-3xl font-bold text-gray-800">Verificación de Identidad</h1>
+            </div>
+          </div>
+
+          {/* Pantalla de instrucciones */}
+          {showOTPInstructions && !otpRequested && (
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-10 h-10 text-sky-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">¿Por qué necesitamos esto?</h2>
+                <p className="text-gray-600 mb-6">
+                  Para tu seguridad, necesitamos verificar tu identidad antes de configurar el cupo de transferencia.
                 </p>
               </div>
 
-              {/* Botón para solicitar código */}
+              <div className="space-y-4 mb-8">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-sky-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    1
+                  </div>
+                  <p className="text-gray-700">Se enviará un código de verificación de 6 dígitos a tu correo electrónico y número de celular registrados.</p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-sky-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    2
+                  </div>
+                  <p className="text-gray-700">Recibirás el código en los próximos segundos.</p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-sky-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    3
+                  </div>
+                  <p className="text-gray-700">Ingresa el código en la siguiente pantalla para confirmar la configuración.</p>
+                </div>
+              </div>
+
               <button
-                onClick={handleRequestOTP}
-                disabled={loading}
-                className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-sky-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-sky-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                onClick={requestOTPCode}
+                disabled={otpLoading}
+                className="w-full py-3 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-medium transition-colors"
               >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                {otpLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
                     Enviando código...
-                  </>
+                  </span>
                 ) : (
-                  <>
-                    <MdSecurity className="text-xl" />
-                    Enviar código de verificación
-                  </>
+                  'Enviar código de verificación'
                 )}
               </button>
             </div>
-          ) : (
-            <div>
-              {/* Entrada de código OTP */}
-              <div className="mb-6">
-                <p className="text-center text-gray-600 mb-6">
-                  Ingresa el código de 6 dígitos que enviamos a tu correo
+          )}
+
+          {/* Pantalla de ingreso de código */}
+          {otpRequested && !showOTPInstructions && (
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+              <div className="text-center mb-6">
+                <MdCheckCircle className="text-sky-600 text-5xl mx-auto mb-3" />
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Código Enviado</h2>
+                <p className="text-gray-600">
+                  Hemos enviado un código de 6 dígitos a tu correo y celular registrados.
                 </p>
-                
-                <div className="flex justify-center gap-3 mb-6">
+              </div>
+
+              {/* Resumen de configuración */}
+              <div className="bg-sky-50 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Configuración a aplicar:</h3>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Cuenta:</span>
+                    <span className="font-mono text-gray-800">{selectedAccount.numeroCuenta}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Cupo máximo diario:</span>
+                    <span className="font-semibold text-sky-600">
+                      ${parseFloat(maximumAmount).toLocaleString('es-EC', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Inputs de OTP */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+                  Ingresa el código de verificación
+                </label>
+                <div className="flex justify-center space-x-2 mb-4">
                   {otpCode.map((digit, index) => (
                     <input
                       key={index}
                       ref={(el) => (otpInputRefs.current[index] = el)}
                       type="text"
-                      maxLength="1"
+                      maxLength={1}
                       value={digit}
                       onChange={(e) => handleOTPChange(index, e.target.value)}
                       onKeyDown={(e) => handleOTPKeyDown(index, e)}
-                      className="w-14 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                      className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-sky-500 focus:outline-none"
                     />
                   ))}
                 </div>
 
                 {otpError && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-                    <p className="text-red-600 text-sm text-center flex items-center justify-center gap-2">
-                      <MdInfo />
-                      {otpError}
-                    </p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-red-700 text-center">{otpError}</p>
                   </div>
                 )}
 
-                {/* Botón reenviar */}
+                {/* Botón de validar */}
+                <button
+                  onClick={handleValidateOTP}
+                  disabled={otpLoading || otpCode.join('').length !== 6}
+                  className="w-full py-3 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-300 text-white rounded-lg font-medium transition-colors mb-4"
+                >
+                  {otpLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Validando...
+                    </span>
+                  ) : (
+                    'Validar código'
+                  )}
+                </button>
+
+                {/* Botón de reenviar */}
                 <div className="text-center">
-                  <button
-                    onClick={handleRequestOTP}
-                    disabled={!canResend || loading}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {countdown > 0 
-                      ? `Reenviar código en ${countdown}s` 
-                      : 'Reenviar código'}
-                  </button>
+                  {canResendOTP ? (
+                    <button
+                      onClick={requestOTPCode}
+                      disabled={otpLoading}
+                      className="text-sm text-sky-600 hover:text-sky-700 font-medium"
+                    >
+                      Reenviar código
+                    </button>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      Puedes solicitar un nuevo código en {resendCountdown}s
+                    </p>
+                  )}
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-              {/* Botón validar */}
-              <button
-                onClick={handleValidateOTP}
-                disabled={loading || otpCode.some(d => !d)}
-                className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-green-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Verificando...
-                  </>
-                ) : (
-                  <>
-                    <MdCheckCircle className="text-xl" />
-                    Confirmar configuración
-                  </>
-                )}
-              </button>
+  // Vista principal - Lista de cuentas
+  return (
+    <div className="min-h-full bg-sky-50">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+            <MdEdit className="text-white text-2xl" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Personalización de Cupos</h1>
+          <p className="text-gray-600">Configura el monto máximo diario de transferencia por cuenta</p>
+        </div>
+
+        {/* Lista de cuentas */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h2 className="text-lg font-bold text-gray-800">Cuenta a configurar</h2>
+          </div>
+
+          {accounts.length > 0 ? (
+            <div className="divide-y divide-gray-200">
+              {accounts.map((account) => (
+                <div
+                  key={account.id}
+                  className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => handleSelectAccount(account)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gradient-to-r from-sky-500 to-sky-600 rounded-full flex items-center justify-center shadow-md">
+                        <MdAccountBalance className="text-white text-xl" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">{account.tipo}</p>
+                        <p className="text-xs text-gray-500 font-mono">Nro. {account.numeroCuenta} | Saldo ${account.saldoDisponible.toLocaleString('es-EC', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Cupo actual</p>
+                        <p className={`text-sm font-semibold ${account.cupoPersonalizado ? 'text-sky-600' : 'text-gray-400'}`}>
+                          {account.cupoPersonalizado 
+                            ? `$${account.cupoMaximo.toLocaleString('es-EC', { minimumFractionDigits: 2 })}`
+                            : 'Sin cupo personalizado'
+                          }
+                        </p>
+                      </div>
+                      <button
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center space-x-2"
+                      >
+                        <MdEdit />
+                        <span>Editar cupo</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-10 text-center">
+              <MdWarning className="text-gray-400 text-5xl mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                No hay cuentas disponibles
+              </h3>
+              <p className="text-sm text-gray-500">
+                No tienes cuentas habilitadas para transferencia.
+              </p>
             </div>
           )}
         </div>
       </div>
     </div>
-  );
-
-  // VISTA 4: Éxito
-  const renderSuccessView = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50 p-6 flex items-center justify-center">
-      <div className="max-w-lg w-full">
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-green-200">
-          {/* Icono de éxito */}
-          <div className="text-center mb-6">
-            <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-full w-24 h-24 mx-auto mb-4 shadow-lg animate-bounce">
-              <MdCheckCircle className="text-white text-6xl" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              ¡Configuración exitosa!
-            </h2>
-            <p className="text-gray-600">
-              El cupo diario de tu cuenta ha sido actualizado
-            </p>
-          </div>
-
-          {/* Detalles */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 mb-6 border border-green-200">
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Cuenta configurada:</span>
-                <span className="font-medium text-gray-800">
-                  {selectedAccount?.number}
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-green-200 pt-3">
-                <span className="text-gray-600">Nuevo cupo diario máximo:</span>
-                <span className="font-bold text-green-600 text-xl">
-                  ${parseFloat(customLimit).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Mensaje informativo */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <p className="text-sm text-blue-800 text-center">
-              <MdInfo className="inline mr-1" />
-              Esta configuración estará activa de inmediato y te ayudará a mantener un mejor control de tus transferencias diarias.
-            </p>
-          </div>
-
-          {/* Botón volver */}
-          <button
-            onClick={handleBackToSelect}
-            className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-sky-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-sky-800 transition-all shadow-lg hover:shadow-xl"
-          >
-            Volver a mis cuentas
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Render principal
-  return (
-    <>
-      {currentView === 'select' && renderSelectView()}
-      {currentView === 'configure' && renderConfigureView()}
-      {currentView === 'verify' && renderVerifyView()}
-      {currentView === 'success' && renderSuccessView()}
-    </>
   );
 };
 

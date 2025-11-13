@@ -123,6 +123,12 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics
+    if (isValidating) {
+      console.log("⚠️ [2FA-UI] Validación ya en proceso, ignorando clic adicional");
+      return;
+    }
+    
     if (!securityCode || securityCode.length !== 6) {
       setErrors({ code: 'El código debe tener 6 dígitos' });
       return;
@@ -220,6 +226,12 @@ const TwoFactorAuthPage = ({ twoFactorData, onTwoFactorSuccess, onBack }) => {
   };
 
   const requestNewCode = async () => {
+    // ✅ BLOQUEO INMEDIATO: Prevenir múltiples clics en reenvío
+    if (isValidating) {
+      console.log("⚠️ [2FA-UI] Reenvío ya en proceso, ignorando clic adicional");
+      return;
+    }
+    
     setIsValidating(true);
     setAlert({ type: 'info', message: 'Solicitando un nuevo código...' });
 
