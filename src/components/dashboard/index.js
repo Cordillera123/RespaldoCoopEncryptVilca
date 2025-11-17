@@ -2,6 +2,7 @@
 export { default as Dashboard } from './Dashboard';
 export { default as Sidebar } from './Sidebar';
 export { default as WindowPanel } from './WindowPanel';
+export { default as NotificationBell } from './NotificationBell'; // 🔔 NUEVO
 export { default as AddAccountToBeneficiary } from './AddAccountToBeneficiary';
 export { default as AccountCreatedSuccess } from './AccountCreatedSuccess';
 export { default as TransferManager } from './TransferManager';

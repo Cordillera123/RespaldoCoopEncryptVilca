@@ -546,6 +546,15 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   // ========================================================================
+  // NOTIFICACIONES DE TRANSFERENCIAS/PAGOS
+  // ========================================================================
+  '2358': {
+    description: 'Obtener lista de notificaciones de transferencias/pagos del día',
+    encryptFields: ['idecl'], // Solo la cédula va encriptada en el request
+    decryptFields: [] // La respuesta viene en texto plano (fhotrn, smstxt, primtr, numreg)
+  },
+
+  // ========================================================================
   // DETALLE DE INVERSIÓN
   // ========================================================================
   '2213': {

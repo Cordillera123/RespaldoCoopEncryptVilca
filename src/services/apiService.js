@@ -33,7 +33,8 @@ const CODES_REQUIRING_L_URL = [
   '2372', // Interest payment types
   '2373', // Investment calculation
   '2310', // Financial institutions
-  '2375'  // Register investment
+  '2375', // Register investment
+  '2358'  // 🔔 Notifications list (transferencias recibidas)
 ];
 
 /**
@@ -100,6 +101,7 @@ INVESTMENT_CALCULATION: '2373',
   VALIDATE_TRANSFER_FUNDS: '2350',       // Validar disponibilidad de fondos
   EXECUTE_INTERNAL_TRANSFER: '2355',     // Ejecutar transferencia interna
   SET_ACCOUNT_TRANSFER_LIMIT: '2303',    // Configurar cupo máximo de transferencia por cuenta
+  NOTIFICATIONS_LIST: '2358',            // Obtener lista de notificaciones de transferencias/pagos del día
 };
 
 /**
@@ -6850,6 +6852,100 @@ formatAccountNumberForDisplay(accountNumber) {
       },
       message: 'Código de seguridad enviado. Ingresa el código para completar el acceso.'
     };
+  }
+
+  /**
+   * NUEVO MÉTODO: Obtener notificaciones de transferencias/pagos del día
+   * Proceso: 2358
+   */
+  async getNotifications(cedula) {
+    console.log('🔔 [NOTIFICATIONS] Obteniendo notificaciones para:', cedula);
+
+    if (!cedula || !cedula.trim()) {
+      return {
+        success: false,
+        error: {
+          message: 'La cédula es requerida',
+          code: 'CEDULA_REQUIRED'
+        }
+      };
+    }
+
+    const notificationsData = {
+      prccode: this.processCodes.NOTIFICATIONS_LIST, // '2358'
+      idecl: cedula.trim()
+    };
+
+    console.log('📤 [NOTIFICATIONS] Solicitando lista de notificaciones');
+
+    const result = await this.makeRequest(notificationsData);
+
+    console.log('📥 [NOTIFICATIONS] Resultado completo:', JSON.stringify(result, null, 2));
+
+    if (result.success) {
+      console.log('🔍 [NOTIFICATIONS] Estado respuesta:', result.data.estado, typeof result.data.estado);
+      console.log('🔍 [NOTIFICATIONS] Mensaje:', result.data.msg);
+      console.log('🔍 [NOTIFICATIONS] Listado:', result.data.listado);
+      console.log('🔍 [NOTIFICATIONS] Es array?:', Array.isArray(result.data.listado));
+
+      // Manejo de respuesta exitosa - COMPARAR COMO STRING Y NÚMERO
+      const estado = String(result.data.estado);
+      if ((estado === '000' || estado === '600') && result.data.listado && Array.isArray(result.data.listado)) {
+        console.log('✅ [NOTIFICATIONS] Notificaciones obtenidas:', result.data.listado.length);
+
+        // Procesar notificaciones
+        const processedNotifications = result.data.listado.map((notification, index) => ({
+          id: `notification-${notification.numreg || index}`,
+          numreg: notification.numreg,
+          timestamp: notification.fhotrn,
+          message: notification.smstxt,
+          isPrimary: notification.primtr === '1',
+          isRead: false, // Por defecto no leída
+          _original: notification
+        }));
+
+        return {
+          success: true,
+          data: {
+            notifications: processedNotifications,
+            total: processedNotifications.length,
+            latest: processedNotifications[0] || null, // Primera notificación (más reciente)
+            rawData: result.data
+          },
+          message: processedNotifications.length > 0 
+            ? `${processedNotifications.length} notificación(es) encontrada(s)` 
+            : 'No hay notificaciones nuevas'
+        };
+      }
+
+      // Sin registros - no es error
+      if (result.data.estado === '001' || 
+          (result.data.msg && result.data.msg.includes('NO DISPONIBLES'))) {
+        console.log('ℹ️ [NOTIFICATIONS] Sin notificaciones disponibles');
+        return {
+          success: true,
+          data: {
+            notifications: [],
+            total: 0,
+            latest: null,
+            rawData: result.data
+          },
+          message: 'No hay notificaciones nuevas'
+        };
+      }
+
+      // Otro estado no exitoso
+      const notificationsResult = this.interpretServerResponse(result.data, 'notifications_list');
+      return {
+        success: false,
+        error: {
+          message: notificationsResult.error?.message || 'Error al obtener notificaciones',
+          code: 'NOTIFICATIONS_ERROR'
+        }
+      };
+    }
+
+    return result;
   }
 
 

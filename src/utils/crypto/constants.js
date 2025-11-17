@@ -414,6 +414,7 @@ export const ENCRYPTION_PROCESS_CODES = {
   TRANSFERS: [
     '2350',  // Validar fondos disponibles
     '2355',  // Ejecutar transferencia interna
+    '2358',  // 🔔 Listar notificaciones de transferencias/pagos
     '2360',  // Transferencia externa - validar
     '2361',  // Transferencia externa - ejecutar
     '2362',  // Transferencia externa - confirmar

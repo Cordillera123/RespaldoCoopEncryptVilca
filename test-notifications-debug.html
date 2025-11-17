@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Notificaciones - Debug</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0ea5e9;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 10px;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0284c7;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #0ea5e9;
+        }
+        .error {
+            border-left-color: #ef4444;
+            background: #fee;
+        }
+        .success {
+            border-left-color: #10b981;
+            background: #efe;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .notification-item {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .notification-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #0ea5e9;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0ea5e9;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Test de Notificaciones - Debug</h1>
+        
+        <div class="input-group">
+            <label for="cedula">Cédula del Usuario:</label>
+            <input type="text" id="cedula" placeholder="Ej: 0200594729" value="0200594729">
+        </div>
+
+        <div>
+            <button onclick="testNotifications()">🔍 Obtener Notificaciones</button>
+            <button onclick="clearResults()">🧹 Limpiar Resultados</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script>
+        const API_URL = 'http://192.168.200.25/wsVirtualCoopSrvL/ws_server/prctrans.php';
+        const TOKEN = '0999SolSTIC20220719';
+        const AES_KEY = 'C4b2ZRywjo8oTBvkE18YSvoHAA8lbAca';
+        const AES_IV = 'PTk6KaVZxN04SXz0';
+
+        function encryptAES(text) {
+            const key = CryptoJS.enc.Utf8.parse(AES_KEY);
+            const iv = CryptoJS.enc.Utf8.parse(AES_IV);
+            const encrypted = CryptoJS.AES.encrypt(text, key, {
+                iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            });
+            return encrypted.toString();
+        }
+
+        function showLoading() {
+            document.getElementById('results').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Obteniendo notificaciones...</p>
+                </div>
+            `;
+        }
+
+        function showError(message, details = null) {
+            const detailsHtml = details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : '';
+            document.getElementById('results').innerHTML = `
+                <div class="response error">
+                    <h3>❌ Error</h3>
+                    <p><strong>${message}</strong></p>
+                    ${detailsHtml}
+                </div>
+            `;
+        }
+
+        function showSuccess(data) {
+            const notifications = data.listado || [];
+            const notificationsHtml = notifications.map((notif, index) => `
+                <div class="notification-item">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <strong style="color: #0ea5e9;">Notificación #${index + 1}</strong>
+                            ${notif.primtr === '1' ? '<span class="badge">⭐ Prioritaria</span>' : ''}
+                            <p style="margin: 10px 0; color: #333;">${notif.smstxt}</p>
+                            <small style="color: #666;">
+                                📅 ${notif.fhotrn} | 📋 Registro: ${notif.numreg}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('results').innerHTML = `
+                <div class="response success">
+                    <h3>✅ Respuesta Exitosa</h3>
+                    <p><strong>Estado:</strong> ${data.estado}</p>
+                    <p><strong>Mensaje:</strong> ${data.msg}</p>
+                    <p><strong>Total de notificaciones:</strong> <span class="badge">${notifications.length}</span></p>
+                </div>
+
+                ${notifications.length > 0 ? `
+                    <div style="margin-top: 20px;">
+                        <h3>📋 Notificaciones Recibidas:</h3>
+                        ${notificationsHtml}
+                    </div>
+                ` : '<p style="text-align: center; color: #666; margin-top: 20px;">No hay notificaciones para mostrar</p>'}
+
+                <div class="response" style="margin-top: 20px;">
+                    <h4>📥 Respuesta Completa (JSON):</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        async function testNotifications() {
+            const cedula = document.getElementById('cedula').value.trim();
+            
+            if (!cedula) {
+                showError('Por favor ingresa una cédula');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // Encriptar la cédula
+                const ideclEncrypted = encryptAES(cedula);
+                
+                console.log('🔐 Cédula encriptada:', ideclEncrypted);
+
+                const requestBody = {
+                    tkn: TOKEN,
+                    prccode: '2358',
+                    idecl: ideclEncrypted
+                };
+
+                console.log('📤 Request:', requestBody);
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('📥 Response:', data);
+
+                if (data.estado === '000' || data.estado === '600') {
+                    showSuccess(data);
+                } else {
+                    showError(`Estado no exitoso: ${data.estado}`, data);
+                }
+
+            } catch (error) {
+                console.error('❌ Error:', error);
+                showError(error.message, error);
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Auto-test al cargar
+        console.log('🔔 Página de test cargada. Click en "Obtener Notificaciones" para probar.');
+    </script>
+</body>
+</html>

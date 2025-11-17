@@ -4,6 +4,8 @@ import Sidebar from "./Sidebar";
 import WindowPanel from "./WindowPanel";
 import useWindows from "../../hooks/useWindows";
 import apiService from "../../services/apiService";
+import { NotificationProvider } from "../../context/NotificationContext"; // 🔔 NUEVO CONTEXTO
+import NotificationBell from "./NotificationBell"; // 🔔 Campana de notificaciones
 
 
 
@@ -854,13 +856,14 @@ const Dashboard = ({ userSession, onLogout }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex overflow-hidden fixed inset-0">
-      {/* Sidebar */}
-      <Sidebar
-        userInfo={userInfo}
-        onMenuClick={handleMenuClick}
-        onLogout={handleLogout}
-      />
+    <NotificationProvider>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex overflow-hidden fixed inset-0">
+        {/* Sidebar */}
+        <Sidebar
+          userInfo={userInfo}
+          onMenuClick={handleMenuClick}
+          onLogout={handleLogout}
+        />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -912,16 +915,8 @@ const Dashboard = ({ userSession, onLogout }) => {
 
                 {/* User Profile Menu */}
                 <div className="flex items-center space-x-3">
-                  {/* <button className="p-2 text-gray-400 hover:text-gray-600 relative">
-                    <svg
-                      className="w-6 h-6"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29C10,4.19 10,4.1 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.19 14,4.29 14,4.29C16.97,5.17 19,7.9 19,11V17L21,19M14,21A2,2 0 0,1 12,23A2,2 0 0,1 10,21" />
-                    </svg>
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                  </button> */}
+                  {/* 🔔 Campana de notificaciones */}
+                  <NotificationBell />
 
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
@@ -1044,6 +1039,7 @@ const Dashboard = ({ userSession, onLogout }) => {
 
    
     </div>
+    </NotificationProvider>
   );
 };
 
