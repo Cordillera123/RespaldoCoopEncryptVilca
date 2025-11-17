@@ -23,6 +23,7 @@ import PerfilComponent from "./PerfilComponent";
 import InternaTransferWindow from './InternaTransferWindow';
 import ExternaTransferWindow from './ExternaTransferWindow';
 import InternacioTransferWindow from './InternacioTransferWindow';
+import TransferHistoryWindow from './TransferHistoryWindow';
 import ServiciosFacilitoForm from "./ServiciosFacilitoForm";
 import CertificadosForm from "./CertificadosForm";
 import CupoComponent from "./CupoComponent";
@@ -68,6 +69,7 @@ const FormComponents = {
   InternalTransferForm: InternaTransferWindow,
   ExternalTransferForm: ExternaTransferWindow,
   InternationalTransferForm: InternacioTransferWindow,
+  TransferHistoryWindow: TransferHistoryWindow,
 
   ServicesForm: () => <FormPlaceholder title="Servicios" />,
   ServiciosFacilitoForm: ServiciosFacilitoForm,

@@ -57,6 +57,15 @@ export const PERSONA_NATURAL_MENU = [
         color: 'gold'
       },
       { 
+        id: 'transfer-history', 
+        label: 'Historial de Movimientos', 
+        component: 'TransferHistoryWindow',
+        iconType: 'custom',
+        customIcon: '📜',
+        description: 'Consulta tu historial de transferencias',
+        color: 'copper'
+      },
+      { 
         id: 'international', 
         label: 'Internacional', 
         component: 'InternationalTransferForm',
@@ -165,6 +174,15 @@ export const EMPRESA_MENU = [
         iconType: 'custom',
         customIcon: '🏛️',
         description: 'A otros bancos e instituciones',
+        color: 'copper'
+      },
+      { 
+        id: 'transfer-history',
+        label: 'Historial de Movimientos',
+        component: 'TransferHistoryWindow',
+        iconType: 'custom',
+        customIcon: '📜',
+        description: 'Consulta tu historial de transferencias empresariales',
         color: 'copper'
       },
       { 

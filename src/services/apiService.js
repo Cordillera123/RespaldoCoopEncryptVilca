@@ -101,7 +101,6 @@ INVESTMENT_CALCULATION: '2373',
   VALIDATE_TRANSFER_FUNDS: '2350',       // Validar disponibilidad de fondos
   EXECUTE_INTERNAL_TRANSFER: '2355',     // Ejecutar transferencia interna
   SET_ACCOUNT_TRANSFER_LIMIT: '2303',    // Configurar cupo máximo de transferencia por cuenta
-  NOTIFICATIONS_LIST: '2358',            // Obtener lista de notificaciones de transferencias/pagos del día
 };
 
 /**
@@ -6534,6 +6533,141 @@ formatAccountNumberForDisplay(accountNumber) {
       });
     }
     return await this.setAccountTransferLimit(cedula, codigoCuenta, montoMaximo, idemsg, codigoOTP);
+  }
+
+  // ==========================================
+  // MÉTODOS PARA HISTORIAL DE TRANSFERENCIAS
+  // ==========================================
+
+  /**
+   * Obtener historial de transferencias por rango de fechas
+   * Código de proceso: 2357
+   * @param {string} cedula - Cédula del cliente (sin encriptar, se encripta automáticamente)
+   * @param {string} fechaDesde - Fecha desde en formato MM/DD/YYYY
+   * @param {string} fechaHasta - Fecha hasta en formato MM/DD/YYYY
+   * @returns {Promise<Object>} Listado de transferencias
+   */
+  async getTransferHistory(cedula, fechaDesde, fechaHasta) {
+    console.log('📜 [TRANSFER-HISTORY] ===== OBTENIENDO HISTORIAL =====');
+    console.log('👤 [TRANSFER-HISTORY] Cédula:', cedula?.substring(0, 4) + '****');
+    console.log('📅 [TRANSFER-HISTORY] Desde:', fechaDesde);
+    console.log('📅 [TRANSFER-HISTORY] Hasta:', fechaHasta);
+
+    // Validaciones básicas
+    if (!cedula || !cedula.trim()) {
+      return {
+        success: false,
+        error: {
+          message: 'La cédula es requerida',
+          code: 'CEDULA_REQUIRED'
+        }
+      };
+    }
+
+    if (!fechaDesde || !fechaHasta) {
+      return {
+        success: false,
+        error: {
+          message: 'Las fechas son requeridas (desde y hasta)',
+          code: 'DATES_REQUIRED'
+        }
+      };
+    }
+
+    // Validar formato de fechas MM/DD/YYYY
+    const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (!dateRegex.test(fechaDesde) || !dateRegex.test(fechaHasta)) {
+      return {
+        success: false,
+        error: {
+          message: 'Las fechas deben estar en formato MM/DD/YYYY',
+          code: 'INVALID_DATE_FORMAT'
+        }
+      };
+    }
+
+    const historyData = {
+      prccode: this.processCodes.TRANSFER_HISTORY, // '2357'
+      idecl: cedula.trim(),  // Cédula (se encripta automáticamente en makeRequest)
+      fecdes: fechaDesde,    // MM/DD/YYYY
+      fechas: fechaHasta     // MM/DD/YYYY
+    };
+
+    console.log('📤 [TRANSFER-HISTORY] Payload:', {
+      prccode: historyData.prccode,
+      idecl: historyData.idecl.substring(0, 10) + '...',
+      fecdes: historyData.fecdes,
+      fechas: historyData.fechas
+    });
+
+    const result = await this.makeRequest(historyData);
+
+    if (result.success) {
+      const historyResult = this.interpretServerResponse(result.data, 'transfer_history');
+
+      if (historyResult.success && result.data.estado === '000') {
+        console.log('✅ [TRANSFER-HISTORY] Historial obtenido exitosamente');
+        
+        const transferList = result.data.listado || [];
+        console.log('📊 [TRANSFER-HISTORY] Total de transferencias:', transferList.length);
+
+        // Log de estructura de datos para debug
+        if (transferList.length > 0) {
+          console.log('🔍 [TRANSFER-HISTORY] Primera transferencia (estructura):', {
+            numref: transferList[0].numref?.substring(0, 10) + '...',
+            fhotif: transferList[0].fhotif,
+            valtrn: transferList[0].valtrn?.substring(0, 10) + '...',
+            bceipo: transferList[0].bceipo?.substring(0, 10) + '...',
+            ifiipo: transferList[0].ifiipo?.substring(0, 10) + '...',
+            tculpo: transferList[0].tculpo?.substring(0, 10) + '...'
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            ...result.data,
+            listado: transferList,
+            totalTransferencias: transferList.length,
+            periodo: {
+              desde: fechaDesde,
+              hasta: fechaHasta
+            }
+          },
+          message: result.data.msg || `Se encontraron ${transferList.length} transferencias`
+        };
+      } else {
+        console.error('❌ [TRANSFER-HISTORY] Error en respuesta:', result.data.msg);
+        return {
+          success: false,
+          error: {
+            message: result.data.msg || 'No se pudo obtener el historial de transferencias',
+            code: 'HISTORY_ERROR',
+            serverState: result.data.estado
+          }
+        };
+      }
+    }
+
+    console.error('❌ [TRANSFER-HISTORY] Error de conexión');
+    return result;
+  }
+
+  /**
+   * Método de conveniencia para obtener historial del usuario actual
+   */
+  async getCurrentUserTransferHistory(fechaDesde, fechaHasta) {
+    const cedula = this.getUserCedula();
+    if (!cedula) {
+      return {
+        success: false,
+        error: {
+          message: 'No hay sesión activa',
+          code: 'NO_USER_SESSION'
+        }
+      };
+    }
+    return await this.getTransferHistory(cedula, fechaDesde, fechaHasta);
   }
 
   // ==========================================
