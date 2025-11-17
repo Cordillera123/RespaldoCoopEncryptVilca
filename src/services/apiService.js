@@ -101,6 +101,9 @@ INVESTMENT_CALCULATION: '2373',
   VALIDATE_TRANSFER_FUNDS: '2350',       // Validar disponibilidad de fondos
   EXECUTE_INTERNAL_TRANSFER: '2355',     // Ejecutar transferencia interna
   SET_ACCOUNT_TRANSFER_LIMIT: '2303',    // Configurar cupo máximo de transferencia por cuenta
+  
+  // 🔔 NOTIFICACIONES
+  NOTIFICATIONS_LIST: '2358',            // Obtener lista de notificaciones de transferencias/pagos del día
 };
 
 /**
@@ -399,9 +402,11 @@ class ApiService {
         console.log('🔍 [INVESTMENT-RAW] ========================================');
       }
       
-      // �🔓 DESENCRIPTAR RESPUESTA DEL BACKEND
+      
+      // 🔓 DESENCRIPTAR RESPUESTA DEL BACKEND
       let decryptedResult = result;
       try {
+        console.log('🔍 [DEBUG-DECRYPT] Antes de desencriptar - prccode:', data.prccode);
         decryptedResult = decryptResponse(result, data.prccode);
         console.log('🔓 [API] Datos desencriptados aplicados');
         
