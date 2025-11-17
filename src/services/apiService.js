@@ -100,6 +100,7 @@ INVESTMENT_CALCULATION: '2373',
   INTERNAL_TRANSFER_ACCOUNTS: '2300',     // Obtener cuentas para transferencias
   VALIDATE_TRANSFER_FUNDS: '2350',       // Validar disponibilidad de fondos
   EXECUTE_INTERNAL_TRANSFER: '2355',     // Ejecutar transferencia interna
+  TRANSFER_HISTORY: '2357',              // Historial de transferencias por fechas
   SET_ACCOUNT_TRANSFER_LIMIT: '2303',    // Configurar cupo máximo de transferencia por cuenta
   
   // 🔔 NOTIFICACIONES
