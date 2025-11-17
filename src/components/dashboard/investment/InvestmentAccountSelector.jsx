@@ -72,14 +72,31 @@ const InvestmentAccountSelector = ({
 
       {/* Estado: Sin cuentas disponibles */}
       {!accountsLoading && !accountsError && investmentAccounts.length === 0 && showAccountSelector && (
-        <div className="border-2 border-yellow-300 rounded-lg p-4 bg-yellow-50">
-          <div className="flex items-start space-x-3">
-            <MdInfo className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-yellow-800">Sin cuentas disponibles</p>
-              <p className="text-sm text-yellow-700 mt-1">
-                No tienes cuentas con fondos suficientes para esta inversión de {formatCurrency(parseFloat(investmentAmount) || 0)}
+        <div className="border-2 border-amber-300 rounded-xl p-6 bg-gradient-to-br from-amber-50 to-yellow-50 shadow-sm">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <MdInfo className="w-7 h-7 text-amber-600" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="text-base font-bold text-amber-900 mb-2">
+                Sin Fondos Suficientes
               </p>
+              <p className="text-sm text-amber-800 mb-3 leading-relaxed">
+                No tienes cuentas con saldo suficiente para esta inversión de{' '}
+                <span className="font-bold">{formatCurrency(parseFloat(investmentAmount) || 0)}</span>
+              </p>
+              <div className="bg-white/50 rounded-lg p-3 border border-amber-200">
+                <p className="text-xs text-amber-700 mb-2 font-medium">
+                  💡 Opciones disponibles:
+                </p>
+                <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                  <li>Intenta con un monto menor</li>
+                  <li>Realiza un depósito en tus cuentas</li>
+                  <li>Transfiere fondos entre cuentas</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>

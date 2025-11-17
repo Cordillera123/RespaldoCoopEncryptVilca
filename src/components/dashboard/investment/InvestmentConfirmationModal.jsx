@@ -123,14 +123,14 @@ const InvestmentConfirmationModal = ({
       // Título principal (fontSize 10)
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text("COOPERATIVA LAS NAVES LTDA", pageWidth / 2, 18, {
+      doc.text("COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA", pageWidth / 2, 18, {
         align: "center",
       });
 
       // Subtítulo (fontSize 11)
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text("LAS NAVES - BOLIVAR", pageWidth / 2, 24, { align: "center" });
+      doc.text("CACVIL - LOJA", pageWidth / 2, 24, { align: "center" });
 
       // Línea separadora
       doc.setLineWidth(0.3);
@@ -160,9 +160,23 @@ const InvestmentConfirmationModal = ({
       
       // Usar datos reales del cliente si están disponibles
       if (clienteInfo) {
+        // Importar decrypt para desencriptar la cédula
+        const { decrypt } = await import('../../../utils/crypto/encryptionService');
+        
+        // Desencriptar cédula si está encriptada (Base64 con =)
+        let cedulaDesencriptada = clienteInfo.idecli || '';
+        if (cedulaDesencriptada.includes('=') && cedulaDesencriptada.length > 15) {
+          try {
+            cedulaDesencriptada = decrypt(clienteInfo.idecli);
+            console.log('🔓 [PDF] Cédula desencriptada para PDF:', '***' + cedulaDesencriptada.slice(-4));
+          } catch (error) {
+            console.error('❌ [PDF] Error al desencriptar cédula:', error);
+          }
+        }
+        
         doc.text(`Cliente: ${clienteInfo.nomcli || ''} ${clienteInfo.apecli || ''}`, 15, currentY);
         currentY += 6; // Espaciado reducido
-        doc.text(`Cédula: ${clienteInfo.idecli || ''}`, 15, currentY);
+        doc.text(`Cédula: ${cedulaDesencriptada}`, 15, currentY);
         currentY += 6;
       } else {
         doc.text("Cliente: [Datos del cliente]", 15, currentY);
@@ -330,7 +344,7 @@ const InvestmentConfirmationModal = ({
       });
       
       doc.text(`Generado: ${fechaGeneracion}`, 15, footerY);
-      doc.text("COOPERATIVA LAS NAVES LTDA - Sistema de Inversiones", pageWidth - 15, footerY, { align: "right" });
+      doc.text("COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA - Sistema de Inversiones", pageWidth - 15, footerY, { align: "right" });
 
       // No hay línea de pie para mantener simplicidad del formato estándar
 

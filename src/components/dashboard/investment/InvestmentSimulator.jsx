@@ -18,7 +18,11 @@ const InvestmentSimulator = ({
   onBack,
   setPaymentTypes,
   calculationLoading,
-  onProceedToInvest
+  onProceedToInvest,
+  // ✅ NUEVOS props para modal de fondos insuficientes
+  showInsufficientFundsModal,
+  insufficientFundsAmount,
+  setShowInsufficientFundsModal
 }) => {
 
   // Estado para el input personalizado de días
@@ -675,6 +679,61 @@ const InvestmentSimulator = ({
           </div>
         </div>
       </div>
+
+      {/* ✅ MODAL DE FONDOS INSUFICIENTES */}
+      {showInsufficientFundsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+            {/* Icono de advertencia */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+                <MdWarning className="w-10 h-10 text-yellow-600" />
+              </div>
+            </div>
+
+            {/* Título */}
+            <h3 className="text-2xl font-bold text-gray-800 text-center mb-3">
+              Fondos Insuficientes
+            </h3>
+
+            {/* Mensaje */}
+            <p className="text-gray-600 text-center mb-2">
+              No tienes cuentas con saldo suficiente para invertir
+            </p>
+            <p className="text-lg font-bold text-indigo-600 text-center mb-6">
+              {formatCurrency(insufficientFundsAmount || 0)}
+            </p>
+
+            {/* Botones */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => {
+                  // Limpiar resultado para permitir ajustar monto
+                  setCalculatorData(prev => ({
+                    ...prev,
+                    result: null
+                  }));
+                  setShowInsufficientFundsModal(false);
+                }}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Ajustar Monto
+              </button>
+              <button
+                onClick={() => setShowInsufficientFundsModal(false)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            {/* Nota informativa */}
+            <p className="text-xs text-gray-500 text-center mt-4">
+              Intenta con un monto menor o realiza un depósito en tus cuentas
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
