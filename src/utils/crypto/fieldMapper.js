@@ -325,6 +325,25 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   // ========================================================================
+  // HISTORIAL DE TRANSFERENCIAS
+  // ========================================================================
+  '2357': {
+    description: 'Historial de transferencias por fechas',
+    encryptFields: [
+      'idecl'           // Cédula del cliente (SENSIBLE)
+      // Las fechas NO se encriptan
+    ],
+    decryptFields: [
+      'valtrn',         // Valor de la transferencia
+      'ctaipo',         // Cuenta destino completa
+      'ctaipr',         // Cuenta origen (remitente)
+      'ideipr',         // Cédula del beneficiario
+      'dettrn'          // Detalle de la transferencia
+      // Todos vienen con sufijo E desde el backend
+    ]
+  },
+
+  // ========================================================================
   // TRANSFERENCIAS EXTERNAS (OTROS BANCOS)
   // ========================================================================
   '2360': {
