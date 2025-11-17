@@ -69,6 +69,11 @@ const [showInvestor, setShowInvestor] = useState(false);
 
   // Estados para cálculo en tiempo real
   const [calculationLoading, setCalculationLoading] = useState(false);
+  
+  // Estado para modal de fondos insuficientes
+  const [showInsufficientFundsModal, setShowInsufficientFundsModal] = useState(false);
+  const [insufficientFundsAmount, setInsufficientFundsAmount] = useState(0);
+
 // AGREGAR ESTOS NUEVOS ESTADOS DESPUÉS DE LA LÍNEA ANTERIOR:
 // Estados para proceso de inversión (FASE 1)
 const [investmentProcess, setInvestmentProcess] = useState({
@@ -531,7 +536,7 @@ const loadInvestmentTerms = async () => {
   const loadInvestmentAccounts = async (investmentAmount) => {
     if (!investmentAmount || parseFloat(investmentAmount) <= 0) {
       console.log('❌ [ACCOUNTS] Monto inválido para cargar cuentas:', investmentAmount);
-      return;
+      return [];
     }
 
     try {
@@ -543,25 +548,37 @@ const loadInvestmentTerms = async () => {
       
       if (result.success) {
         console.log('✅ [ACCOUNTS] Cuentas cargadas:', result.data.cuentas.length);
+        
+        // ✅ Si no hay cuentas, NO mostrar el selector (para evitar sección vacía)
+        if (result.data.cuentas.length === 0) {
+          console.log('⚠️ [ACCOUNTS] No hay cuentas con fondos suficientes');
+          setInvestmentAccounts([]);
+          setShowAccountSelector(false);
+          setAccountsError(null); // No mostrar error aquí, se manejará con el modal
+          return [];
+        }
+        
         setInvestmentAccounts(result.data.cuentas);
         setShowAccountSelector(true);
         
         if (result.data.cuentas.length === 1) {
           setSelectedAccount(result.data.cuentas[0].codigo);
-        } else if (result.data.cuentas.length === 0) {
-          setAccountsError('No tienes cuentas disponibles para realizar esta inversión');
         }
+        
+        return result.data.cuentas;
       } else {
         console.error('❌ [ACCOUNTS] Error:', result.error.message);
         setAccountsError(result.error.message);
         setInvestmentAccounts([]);
         setShowAccountSelector(false);
+        return [];
       }
     } catch (error) {
       console.error('💥 [ACCOUNTS] Error inesperado:', error);
       setAccountsError('Error inesperado al cargar las cuentas disponibles');
       setInvestmentAccounts([]);
       setShowAccountSelector(false);
+      return [];
     } finally {
       setAccountsLoading(false);
     }
@@ -1023,8 +1040,9 @@ const getUserCedula = () => {
 };
 /**
  * Ir desde simulador a proceso de inversión
+ * ✅ CON VALIDACIÓN DE FONDOS
  */
-const handleProceedToInvest = () => {
+const handleProceedToInvest = async () => {
   console.log('🚀 [NAV] Procediendo del simulador al proceso de inversión');
   
   // Validar que hay resultado de simulación
@@ -1033,6 +1051,19 @@ const handleProceedToInvest = () => {
     return;
   }
   
+  // ✅ VALIDAR FONDOS ANTES DE AVANZAR
+  console.log('💰 [VALIDATION] Verificando cuentas disponibles para:', calculatorData.amount);
+  
+  const availableAccounts = await loadInvestmentAccounts(calculatorData.amount);
+  
+  if (!availableAccounts || availableAccounts.length === 0) {
+    console.log('⚠️ [VALIDATION] No hay fondos suficientes');
+    setInsufficientFundsAmount(parseFloat(calculatorData.amount));
+    setShowInsufficientFundsModal(true);
+    return;
+  }
+  
+  console.log('✅ [VALIDATION] Fondos disponibles, avanzando al proceso de inversión');
   setShowSimulator(false);
   setShowInvestor(true);
 };
@@ -1189,6 +1220,15 @@ const handleStartSimulator = async () => {
     
     // Estados de cálculo
     calculationLoading,
+    
+    // Estados de fondos insuficientes (NUEVO)
+    showInsufficientFundsModal,
+    insufficientFundsAmount,
+    setShowInsufficientFundsModal,
+    
+    // Estados de navegación (NUEVO)
+    showSimulator,
+    showInvestor,
     
     // Estados de paginación
     currentPage,

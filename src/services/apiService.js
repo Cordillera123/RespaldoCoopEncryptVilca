@@ -4315,60 +4315,63 @@ async getCurrentUserInvestmentParameters() {
 
       if (detailResult.success && result.data.cliente) {
         const cliente = result.data.cliente;
-        const inversion = cliente.inversion || {};
+        
+        // ✅ CRÍTICO: Backend devuelve inversion como ARRAY, no como objeto
+        const inversionArray = cliente.inversion || [];
+        const inversion = Array.isArray(inversionArray) ? inversionArray[0] : inversionArray;
         const movimientos = cliente.detalle || [];
 
         console.log('✅ [INVESTMENT-DETAIL] Detalle obtenido exitosamente');
         console.log('🏢 [INVESTMENT-DETAIL] Empresa:', cliente.nomemp);
         console.log('🏦 [INVESTMENT-DETAIL] Oficina:', cliente.nomofi);
         console.log('👤 [INVESTMENT-DETAIL] Cliente:', cliente.nomcli, cliente.apecli);
-        console.log('💰 [INVESTMENT-DETAIL] Inversión:', inversion.destin);
+        console.log('💰 [INVESTMENT-DETAIL] Inversión:', inversion?.destin);
         console.log('📊 [INVESTMENT-DETAIL] Movimientos:', movimientos.length);
         console.log('🔍 [INVESTMENT-DETAIL] Objeto inversión COMPLETO:', JSON.stringify(inversion, null, 2));
         
         // 📅 LOG ESPECÍFICO PARA FECHAS
         console.log('📅 [INVESTMENT-DETAIL] ANÁLISIS DE FECHAS:');
-        console.log('  - fecini RAW:', inversion.fecini);
-        console.log('  - fecini TIPO:', typeof inversion.fecini);
-        console.log('  - fecini LENGTH:', inversion.fecini?.length);
-        console.log('  - fecini CHAR CODES:', inversion.fecini?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
-        console.log('  - fecven RAW:', inversion.fecven);
-        console.log('  - fecven TIPO:', typeof inversion.fecven);
-        console.log('  - fecven LENGTH:', inversion.fecven?.length);
-        console.log('  - fecven CHAR CODES:', inversion.fecven?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - fecini RAW:', inversion?.fecini);
+        console.log('  - fecini TIPO:', typeof inversion?.fecini);
+        console.log('  - fecini LENGTH:', inversion?.fecini?.length);
+        console.log('  - fecini CHAR CODES:', inversion?.fecini?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - fecven RAW:', inversion?.fecven);
+        console.log('  - fecven TIPO:', typeof inversion?.fecven);
+        console.log('  - fecven LENGTH:', inversion?.fecven?.length);
+        console.log('  - fecven CHAR CODES:', inversion?.fecven?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
 
         // 🔓 Desencriptar campos monetarios de inversión si vienen encriptados
-        let salcntDecrypted = inversion.salcnt;
-        let saldisDecrypted = inversion.saldis;
-        let codinvDecrypted = inversion.codinv;
-        let tasinvDecrypted = inversion.tasinv;
+        let salcntDecrypted = inversion?.salcnt;
+        let saldisDecrypted = inversion?.saldis;
+        let codinvDecrypted = inversion?.codinv;
+        let tasinvDecrypted = inversion?.tasinv;
 
         console.log('🔍 [INVESTMENT-DETAIL] Valores ANTES de desencriptar:', {
-          salcnt: inversion.salcnt,
-          salcntType: typeof inversion.salcnt,
-          salcntLength: inversion.salcnt?.length,
-          saldis: inversion.saldis,
-          saldisType: typeof inversion.saldis,
-          saldisLength: inversion.saldis?.length,
-          codinv: inversion.codinv,
-          codinvType: typeof inversion.codinv,
-          tasinv: inversion.tasinv,
-          tasinvType: typeof inversion.tasinv
+          salcnt: inversion?.salcnt,
+          salcntType: typeof inversion?.salcnt,
+          salcntLength: inversion?.salcnt?.length,
+          saldis: inversion?.saldis,
+          saldisType: typeof inversion?.saldis,
+          saldisLength: inversion?.saldis?.length,
+          codinv: inversion?.codinv,
+          codinvType: typeof inversion?.codinv,
+          tasinv: inversion?.tasinv,
+          tasinvType: typeof inversion?.tasinv
         });
         
         // 💰 LOG ESPECÍFICO PARA VALORES NUMÉRICOS (DETECTAR "O" vs "0")
         console.log('💰 [INVESTMENT-DETAIL] ANÁLISIS DE VALORES NUMÉRICOS:');
-        console.log('  - salcnt CHAR CODES:', inversion.salcnt?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
-        console.log('  - saldis CHAR CODES:', inversion.saldis?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
-        console.log('  - tasinv CHAR CODES:', inversion.tasinv?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - salcnt CHAR CODES:', inversion?.salcnt?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - saldis CHAR CODES:', inversion?.saldis?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
+        console.log('  - tasinv CHAR CODES:', inversion?.tasinv?.split('').map((c, i) => `[${i}]='${c}'(${c.charCodeAt(0)})`).join(' '));
         console.log('  - ¿Es Base64?:', {
-          salcnt: inversion.salcnt?.includes('='),
-          saldis: inversion.saldis?.includes('='),
-          tasinv: inversion.tasinv?.includes('=')
+          salcnt: inversion?.salcnt?.includes('='),
+          saldis: inversion?.saldis?.includes('='),
+          tasinv: inversion?.tasinv?.includes('=')
         });
 
         // Detectar y desencriptar salcnt (saldo contable)
-        if (typeof inversion.salcnt === 'string' && inversion.salcnt.length > 10 && inversion.salcnt.includes('=')) {
+        if (typeof inversion?.salcnt === 'string' && inversion.salcnt.length > 10 && inversion.salcnt.includes('=')) {
           try {
             salcntDecrypted = decrypt(inversion.salcnt);
             console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando salcnt: ${inversion.salcnt.substring(0, 20)}... -> ${salcntDecrypted}`);
@@ -4378,7 +4381,7 @@ async getCurrentUserInvestmentParameters() {
         }
 
         // Detectar y desencriptar saldis (saldo disponible)
-        if (typeof inversion.saldis === 'string' && inversion.saldis.length > 10 && inversion.saldis.includes('=')) {
+        if (typeof inversion?.saldis === 'string' && inversion.saldis.length > 10 && inversion.saldis.includes('=')) {
           try {
             saldisDecrypted = decrypt(inversion.saldis);
             console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando saldis: ${inversion.saldis.substring(0, 20)}... -> ${saldisDecrypted}`);
@@ -4388,7 +4391,7 @@ async getCurrentUserInvestmentParameters() {
         }
 
         // Detectar y desencriptar codinv (código inversión)
-        if (typeof inversion.codinv === 'string' && inversion.codinv.length > 10 && inversion.codinv.includes('=')) {
+        if (typeof inversion?.codinv === 'string' && inversion.codinv.length > 10 && inversion.codinv.includes('=')) {
           try {
             codinvDecrypted = decrypt(inversion.codinv);
             console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando codinv: ${inversion.codinv.substring(0, 20)}... -> ${codinvDecrypted}`);
@@ -4398,7 +4401,7 @@ async getCurrentUserInvestmentParameters() {
         }
 
         // Detectar y desencriptar tasinv (tasa de inversión)
-        if (typeof inversion.tasinv === 'string' && inversion.tasinv.length > 10 && inversion.tasinv.includes('=')) {
+        if (typeof inversion?.tasinv === 'string' && inversion.tasinv.length > 10 && inversion.tasinv.includes('=')) {
           try {
             tasinvDecrypted = decrypt(inversion.tasinv);
             console.log(`🔓 [INVESTMENT-DETAIL] Desencriptando tasinv: ${inversion.tasinv.substring(0, 20)}... -> ${tasinvDecrypted}`);
@@ -4408,13 +4411,13 @@ async getCurrentUserInvestmentParameters() {
         }
 
         console.log('💰 [INVESTMENT-DETAIL] Valores desencriptados:', {
-          salcntOriginal: inversion.salcnt,
+          salcntOriginal: inversion?.salcnt,
           salcntDecrypted,
-          saldisOriginal: inversion.saldis,
+          saldisOriginal: inversion?.saldis,
           saldisDecrypted,
-          codinvOriginal: inversion.codinv,
+          codinvOriginal: inversion?.codinv,
           codinvDecrypted,
-          tasinvOriginal: inversion.tasinv,
+          tasinvOriginal: inversion?.tasinv,
           tasinvDecrypted
         });
 

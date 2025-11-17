@@ -70,12 +70,23 @@ const InvestmentDetail = ({
       return [];
     }
 
+    // Primero filtrar movimientos con valores válidos (excluir filas con todo en 0)
+    let movements = investmentDetail.movimientos.filter(movement => {
+      const credito = parseFloat(movement.valorCredito) || 0;
+      const debito = parseFloat(movement.valorDebito) || 0;
+      const saldo = parseFloat(movement.saldo) || 0;
+      
+      // Solo mostrar si al menos uno de los valores es diferente de 0
+      return credito !== 0 || debito !== 0 || saldo !== 0;
+    });
+
+    // Luego aplicar filtro de búsqueda si existe
     if (!searchFilter.trim()) {
-      return investmentDetail.movimientos;
+      return movements;
     }
 
     const searchTerm = searchFilter.toLowerCase();
-    return investmentDetail.movimientos.filter(movement => 
+    return movements.filter(movement => 
       movement.descripcion?.toLowerCase().includes(searchTerm) ||
       movement.numeroDocumento?.toLowerCase().includes(searchTerm) ||
       movement.tipoTransaccion?.toLowerCase().includes(searchTerm) ||
@@ -136,16 +147,16 @@ const InvestmentDetail = ({
             <div className="flex items-center justify-between text-white">
               <div>
                 <h1 className="text-2xl font-bold mb-1">
-                  {investmentDetail?.inversion?.tipoInversion || selectedInvestment.type}
+                  {investmentDetail?.inversion?.tipoInversion || selectedInvestment?.type || 'Inversión'}
                 </h1>
                 <p className="text-indigo-100 font-mono text-lg">
-                  **** **** **** {(investmentDetail?.inversion?.codigo || selectedInvestment.code)?.slice(-4)}
+                  **** **** **** {(investmentDetail?.inversion?.codigo || selectedInvestment?.code || '')?.slice(-4)}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-indigo-100 text-sm font-medium mb-1">Monto Invertido</p>
                 <p className="text-4xl font-bold">
-                  ${(investmentDetail?.inversion?.saldoContable || selectedInvestment.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${(parseFloat(investmentDetail?.inversion?.saldoContable) || parseFloat(selectedInvestment?.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -154,27 +165,27 @@ const InvestmentDetail = ({
           <div className="px-8 py-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="text-center p-4 bg-white/5 rounded-xl">
-                <p className="text-sm text-gray-500 font-medium mb-1">Código</p>
-                <p className="font-bold text-black">
-                  {investmentDetail?.inversion?.codigo || selectedInvestment.code}
+                <p className="text-sm text-gray-500 font-medium mb-1">Código Completo</p>
+                <p className="font-bold text-black text-sm font-mono">
+                  {investmentDetail?.inversion?.codigo || selectedInvestment?.code || 'N/A'}
                 </p>
               </div>
               <div className="text-center p-4 bg-white/5 rounded-xl">
                 <p className="text-sm text-gray-500 font-medium mb-1">Tasa de Rendimiento</p>
                 <p className="font-bold text-black">
-                  {investmentDetail?.inversion?.tasaInteres || selectedInvestment.interestRate}% anual
+                  {parseFloat(investmentDetail?.inversion?.tasaInteres) || parseFloat(selectedInvestment?.interestRate) || 0}% anual
                 </p>
               </div>
               <div className="text-center p-4 bg-white/5 rounded-xl">
                 <p className="text-sm text-gray-500 font-medium mb-1">Fecha de Vencimiento</p>
                 <p className="font-bold text-black">
-                  {investmentDetail?.inversion?.fechaVencimiento || selectedInvestment.maturityDate}
+                  {investmentDetail?.inversion?.fechaVencimiento || selectedInvestment?.maturityDate || 'N/A'}
                 </p>
               </div>
               <div className="text-center p-4 bg-white/5 rounded-xl">
                 <p className="text-sm text-gray-500 font-medium mb-1">Estado</p>
-                <span className="inline-flex px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-semibold border border-emerald-400/30">
-                  {investmentDetail?.inversion?.estado || selectedInvestment.status}
+                <span className="inline-flex px-3 py-1 bg-emerald-500/20 text-emerald-700 rounded-full text-sm font-semibold border border-emerald-400/30">
+                  {investmentDetail?.inversion?.estado || selectedInvestment?.status || 'Activo'}
                 </span>
               </div>
             </div>
@@ -185,13 +196,13 @@ const InvestmentDetail = ({
                 <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
                   <p className="text-sm text-blue-600 font-medium mb-1">Saldo Disponible</p>
                   <p className="text-xl font-bold text-blue-800">
-                    ${investmentDetail.inversion.saldoDisponible.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    ${(parseFloat(investmentDetail.inversion.saldoDisponible) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="p-4 bg-green-50 rounded-xl border border-green-200">
                   <p className="text-sm text-green-600 font-medium mb-1">Rendimiento Esperado</p>
                   <p className="text-xl font-bold text-green-800">
-                    ${investmentDetail.inversion.rendimientoEsperado?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                    ${(parseFloat(investmentDetail.inversion.rendimientoEsperado) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -432,8 +443,12 @@ const InvestmentDetail = ({
             </div>
           )}
 
-          {/* Resumen de movimientos */}
-          {investmentDetail?.movimientos?.length > 0 && (
+          {/* Resumen de movimientos - Solo mostrar si hay valores válidos */}
+          {investmentDetail?.movimientos?.length > 0 && 
+           investmentDetail?.estadisticas && 
+           (investmentDetail.estadisticas.totalCreditos > 0 || 
+            investmentDetail.estadisticas.totalDebitos > 0 || 
+            investmentDetail.estadisticas.saldoActual > 0) && (
             <div className="px-8 py-4 bg-white/5 border-t border-white/10">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
@@ -443,19 +458,19 @@ const InvestmentDetail = ({
                 <div className="text-center">
                   <p className="text-gray-600">Total Créditos</p>
                   <p className="font-bold text-emerald-600">
-                    ${investmentDetail.estadisticas?.totalCreditos?.toFixed(4) || '0.0000'}
+                    ${investmentDetail.estadisticas.totalCreditos.toFixed(4)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-600">Total Débitos</p>
                   <p className="font-bold text-red-600">
-                    ${investmentDetail.estadisticas?.totalDebitos?.toFixed(4) || '0.0000'}
+                    ${investmentDetail.estadisticas.totalDebitos.toFixed(4)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-600">Saldo Actual</p>
                   <p className="font-bold text-indigo-600">
-                    ${investmentDetail.estadisticas?.saldoActual?.toFixed(4) || '0.0000'}
+                    ${investmentDetail.estadisticas.saldoActual.toFixed(4)}
                   </p>
                 </div>
               </div>

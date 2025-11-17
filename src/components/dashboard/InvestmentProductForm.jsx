@@ -52,6 +52,11 @@ const InvestmentProductForm = () => {
     periodValidation,
     calculationLoading,
     
+    // Estados de fondos insuficientes (NUEVO)
+    showInsufficientFundsModal,
+    insufficientFundsAmount,
+    setShowInsufficientFundsModal,
+    
     // Estados de paginación
     currentPage,
     totalPages,
@@ -151,7 +156,11 @@ const InvestmentProductForm = () => {
     onBack: handleBackToMain,
     setPaymentTypes,
     calculationLoading,
-    onProceedToInvest: handleProceedToInvest
+    onProceedToInvest: handleProceedToInvest,
+    // ✅ NUEVOS props para modal de fondos insuficientes
+    showInsufficientFundsModal,
+    insufficientFundsAmount,
+    setShowInsufficientFundsModal
   }), [
     calculatorData,
     setCalculatorData,
@@ -169,7 +178,10 @@ const InvestmentProductForm = () => {
     handleBackToMain,
     setPaymentTypes,
     calculationLoading,
-    handleProceedToInvest
+    handleProceedToInvest,
+    showInsufficientFundsModal,
+    insufficientFundsAmount,
+    setShowInsufficientFundsModal
   ]);
 
   // Props para el proceso de inversión

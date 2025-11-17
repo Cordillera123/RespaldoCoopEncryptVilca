@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   // DESARROLLO: 192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php
   // PRODUCCIÓN: 192.168.0.59/wsVirtualCoopSrvL/ws_server/prctrans.php
   const API_TARGET = mode === 'production' 
-    ? 'http://192.168.0.59'      // PRODUCCIÓN
+    ? 'http://173.31.30.180'      // PRODUCCIÓN
     : 'http://192.168.200.102'   // DESARROLLO
 
   const API_PATH = mode === 'production'
