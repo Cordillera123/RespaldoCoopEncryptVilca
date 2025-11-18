@@ -55,11 +55,10 @@ const InvestmentConfirmationModal = ({
     
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-EC', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}/${month}/${day}`;
     } catch (error) {
       return dateString;
     }
@@ -70,11 +69,10 @@ const InvestmentConfirmationModal = ({
     
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-EC', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}/${month}/${day}`;
     } catch (error) {
       return dateString;
     }
@@ -185,7 +183,12 @@ const InvestmentConfirmationModal = ({
         currentY += 6;
       }
       
-      doc.text(`Fecha de emisión: ${new Date().toLocaleDateString('es-EC')}`, 15, currentY);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const emissionDate = `${year}/${month}/${day}`;
+      doc.text(`Fecha de emisión: ${emissionDate}`, 15, currentY);
       currentY += 12; // Espaciado reducido
 
       // Sección: Detalles de la Inversión - fontSize 7

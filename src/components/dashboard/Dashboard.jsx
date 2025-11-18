@@ -927,7 +927,15 @@ const Dashboard = ({ userSession, onLogout }) => {
                         {userInfo?.cliente?.[0]?.apecli}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Último acceso: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        Último acceso: {(() => {
+                          const now = new Date();
+                          const year = now.getFullYear();
+                          const month = String(now.getMonth() + 1).padStart(2, '0');
+                          const day = String(now.getDate()).padStart(2, '0');
+                          const hours = String(now.getHours()).padStart(2, '0');
+                          const minutes = String(now.getMinutes()).padStart(2, '0');
+                          return `${year}/${month}/${day} ${hours}:${minutes}`;
+                        })()}
                       </p>
                     </div>
                     <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-teal-200 shadow-sm relative">

@@ -881,13 +881,13 @@ const SavingsProductForm = () => {
         doc.text(saldoFinalText, 15, finalY);
 
         // Fecha de generación alineada a la derecha
-        const fechaGeneracion = new Date().toLocaleString("es-EC", {
-          day: "2-digit",
-          month: "2-digit", 
-          year: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const fechaGeneracion = `${year}/${month}/${day} ${hours}:${minutes}`;
         doc.text(`Generado: ${fechaGeneracion}`, pageWidth - 15, finalY, {
           align: "right",
         });
@@ -953,37 +953,41 @@ const SavingsProductForm = () => {
             <label className="text-sm font-medium text-gray-600">
               Desde:
             </label>
-            <input
-              type="date"
-              value={formatDateForHtmlInput(dateFilters.fechaDesde)}
-              onChange={(e) => {
-                const yyyymmddDate = formatDateFromHtmlInput(e.target.value);
-                setDateFilters((prev) => ({
-                  ...prev,
-                  fechaDesde: yyyymmddDate,
-                }));
-                console.log("📅 [INPUT] Fecha desde cambiada:", e.target.value, "->", yyyymmddDate);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={dateFilters.fechaDesde}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDateFilters((prev) => ({
+                    ...prev,
+                    fechaDesde: value,
+                  }));
+                }}
+                placeholder="YYYY/MM/DD"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-40"
+              />
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-600">
               Hasta:
             </label>
-            <input
-              type="date"
-              value={formatDateForHtmlInput(dateFilters.fechaHasta)}
-              onChange={(e) => {
-                const yyyymmddDate = formatDateFromHtmlInput(e.target.value);
-                setDateFilters((prev) => ({
-                  ...prev,
-                  fechaHasta: yyyymmddDate,
-                }));
-                console.log("📅 [INPUT] Fecha hasta cambiada:", e.target.value, "->", yyyymmddDate);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={dateFilters.fechaHasta}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDateFilters((prev) => ({
+                    ...prev,
+                    fechaHasta: value,
+                  }));
+                }}
+                placeholder="YYYY/MM/DD"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-40"
+              />
+            </div>
           </div>
           <button
             onClick={applyDateFilters}
@@ -1021,6 +1025,18 @@ const SavingsProductForm = () => {
   // Renderizar estado de carga inicial
   if (loading) {
     return (
+      <div className="min-h-full bg-sky-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-sky-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando cuentas de ahorro...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar estado de error
+  if (error) {
+    return (
       <div className="min-h-full bg-sky-50">
         <div className="max-w-7xl mx-auto p-6">
           <div className="text-center py-12">
@@ -1037,7 +1053,7 @@ const SavingsProductForm = () => {
                 <button
                   onClick={() => {
                     apiService.logout();
-                    window.location.href = "/login"; // Ajustar según tu ruta de login
+                    window.location.href = "/login";
                   }}
                   className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >

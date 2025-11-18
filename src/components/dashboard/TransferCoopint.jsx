@@ -475,13 +475,13 @@ const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }
       // Fecha de generación
       yPos += 5;
       doc.setFontSize(9);
-      const currentDate = new Date().toLocaleString('es-EC', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentDate = `${year}/${month}/${day} ${hours}:${minutes}`;
       doc.text(`Generado: ${currentDate}`, pageWidth / 2, yPos, { align: 'center' });
 
       yPos += 12;

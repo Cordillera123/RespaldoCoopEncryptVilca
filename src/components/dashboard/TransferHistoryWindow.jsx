@@ -90,7 +90,7 @@ const TransferHistoryWindow = () => {
     }
   };
 
-  // Formatear fecha para mostrar (DD/MM/YYYY sin hora)
+  // Formatear fecha para mostrar (YYYY/MM/DD sin hora)
   const formatDateForDisplay = (dateString) => {
     if (!dateString) return 'N/A';
     
@@ -99,16 +99,12 @@ const TransferHistoryWindow = () => {
       if (dateString.includes('-')) {
         const [datePart] = dateString.split(' '); // Separar fecha de hora
         const [year, month, day] = datePart.split('-');
-        return `${day}/${month}/${year}`;
+        return `${year}/${month}/${day}`;
       }
-      // Si viene en formato YYYY/MM/DD
+      // Si viene en formato YYYY/MM/DD (ya está en el formato correcto)
       if (dateString.includes('/')) {
         const [datePart] = dateString.split(' '); // Separar fecha de hora si existe
-        const parts = datePart.split('/');
-        if (parts.length === 3) {
-          const [year, month, day] = parts;
-          return `${day}/${month}/${year}`;
-        }
+        return datePart; // Ya está en formato YYYY/MM/DD
       }
       return dateString;
     } catch (error) {
@@ -172,13 +168,13 @@ const TransferHistoryWindow = () => {
       // Guardar cédula SIN ENCRIPTAR
       setUserCedula(cedula);
       
-      // Establecer rango de fechas por defecto (últimos 30 días)
+      // Establecer rango de fechas por defecto (últimos 7 días)
       const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
       
       const toDate = formatDateToYYYYMMDD(today);
-      const fromDate = formatDateToYYYYMMDD(thirtyDaysAgo);
+      const fromDate = formatDateToYYYYMMDD(sevenDaysAgo);
       
       console.log('📅 [TRANSFER-HISTORY] Rango por defecto:', { from: fromDate, to: toDate });
       
@@ -340,11 +336,11 @@ const TransferHistoryWindow = () => {
   // Limpiar filtros y volver al rango por defecto
   const clearFilters = () => {
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
     
     const toDate = formatDateToYYYYMMDD(today);
-    const fromDate = formatDateToYYYYMMDD(thirtyDaysAgo);
+    const fromDate = formatDateToYYYYMMDD(sevenDaysAgo);
     
     setDateFilters({
       fechaDesde: fromDate,
@@ -414,11 +410,10 @@ const TransferHistoryWindow = () => {
 
       // Fecha y hora actual
       const now = new Date();
-      const dateStr = now.toLocaleDateString('es-EC', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}/${month}/${day}`;
       const timeStr = now.toLocaleTimeString('es-EC');
       doc.setFontSize(9);
       doc.setTextColor(100);
@@ -594,16 +589,15 @@ const TransferHistoryWindow = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Fecha Desde
             </label>
-            <input
-              type="date"
-              value={formatDateForHtmlInput(dateFilters.fechaDesde)}
-              onChange={(e) => {
-                const newDate = formatDateFromHtmlInput(e.target.value);
-                console.log('📅 Fecha desde seleccionada (YYYY/MM/DD):', newDate);
-                setDateFilters({ ...dateFilters, fechaDesde: newDate });
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={dateFilters.fechaDesde}
+                onChange={(e) => setDateFilters({ ...dateFilters, fechaDesde: e.target.value })}
+                placeholder="YYYY/MM/DD"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+              />
+            </div>
           </div>
 
           {/* Fecha Hasta */}
@@ -611,16 +605,15 @@ const TransferHistoryWindow = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Fecha Hasta
             </label>
-            <input
-              type="date"
-              value={formatDateForHtmlInput(dateFilters.fechaHasta)}
-              onChange={(e) => {
-                const newDate = formatDateFromHtmlInput(e.target.value);
-                console.log('📅 Fecha hasta seleccionada (YYYY/MM/DD):', newDate);
-                setDateFilters({ ...dateFilters, fechaHasta: newDate });
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={dateFilters.fechaHasta}
+                onChange={(e) => setDateFilters({ ...dateFilters, fechaHasta: e.target.value })}
+                placeholder="YYYY/MM/DD"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+              />
+            </div>
           </div>
 
           {/* Botones */}

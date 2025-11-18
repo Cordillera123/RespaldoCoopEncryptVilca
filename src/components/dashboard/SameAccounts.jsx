@@ -295,11 +295,10 @@ const SameAccounts = ({ onBack, openWindow }) => {
 
       // Fecha y hora actual
       const now = new Date();
-      const dateStr = now.toLocaleDateString('es-EC', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}/${month}/${day}`;
       const timeStr = now.toLocaleTimeString('es-EC');
       doc.setFontSize(9);
       doc.setTextColor(100);
