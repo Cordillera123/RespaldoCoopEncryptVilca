@@ -577,12 +577,40 @@ const DashboardHomeContent = ({ recentProducts, onProductClick }) => {
           )}
         </div>
 
-        {/* Quick Actions for Transfers - SIN CAMBIOS */}
+        {/* Quick Actions - Ahorros y Certificados */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
-            Acciones Rápidas - Transferencias
+            Accesos Rápidos
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => onProductClick({
+                component: 'SavingsProductForm',
+                title: 'Ahorros',
+                label: 'Ahorros'
+              })}
+              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
+            >
+              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-white text-lg">💰</span>
+              </div>
+              <span className="text-sm font-medium">Ahorros</span>
+            </button>
+
+            <button
+              onClick={() => onProductClick({
+                component: 'CertificadosForm',
+                title: 'Certificados',
+                label: 'Certificados'
+              })}
+              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
+            >
+              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-white text-lg">📜</span>
+              </div>
+              <span className="text-sm font-medium">Certificados</span>
+            </button>
+
             <button
               onClick={() => onProductClick({
                 component: 'InternalTransferForm',
@@ -594,35 +622,7 @@ const DashboardHomeContent = ({ recentProducts, onProductClick }) => {
               <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
                 <span className="text-white text-lg">🏦</span>
               </div>
-              <span className="text-sm font-medium">Internas</span>
-            </button>
-
-            <button
-              onClick={() => onProductClick({
-                component: 'ExternalTransferForm',
-                title: 'Transferencia Externa',
-                label: 'Transferencia Externa'
-              })}
-              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
-            >
-              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-white text-lg">🏛️</span>
-              </div>
-              <span className="text-sm font-medium">Externas</span>
-            </button>
-
-            <button
-              onClick={() => onProductClick({
-                component: 'InternationalTransferForm',
-                title: 'Transferencia Internacional',
-                label: 'Transferencia Internacional'
-              })}
-              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
-            >
-              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-white text-lg">🌍</span>
-              </div>
-              <span className="text-sm font-medium">Internacional</span>
+              <span className="text-sm font-medium">Transferencias</span>
             </button>
           </div>
         </div>

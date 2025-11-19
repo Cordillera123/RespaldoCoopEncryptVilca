@@ -128,7 +128,7 @@ const InvestmentConfirmationModal = ({
       // Subtítulo (fontSize 11)
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text("CACVIL - LOJA", pageWidth / 2, 24, { align: "center" });
+      doc.text("CACVIL - LOJA ", pageWidth / 2, 24, { align: "center" });
 
       // Línea separadora
       doc.setLineWidth(0.3);
