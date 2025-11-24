@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     : 'http://192.168.200.102'   // DESARROLLO
 
   const API_PATH = mode === 'production'
-    ? '/wsVirtualCoopSrvL/ws_server'  // PRODUCCIÓN (servidor L)
+    ? '/wsVirtualCoopSrvP/ws_server'  // PRODUCCIÓN (servidor L)
     : '/wsVirtualCoopSrvP/ws_server'  // DESARROLLO (servidor P)
 
   console.log('🚀 [VITE] Modo:', mode)

@@ -380,13 +380,13 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
                 
                 <div className="bg-white max-h-96 overflow-y-auto rounded-lg border border-slate-200 shadow-inner p-4">
                   <div className="prose prose-sm max-w-none">
-                    <h4 className="font-bold text-slate-900 mb-3">TÉRMINOS Y CONDICIONES DE USO - LAS NAVES COOPERATIVA</h4>
+                    <h4 className="font-bold text-slate-900 mb-3">TÉRMINOS Y CONDICIONES DE USO - COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA</h4>
                     
                     <div className="space-y-4 text-slate-700">
                       <section>
                         <h5 className="font-semibold text-slate-800 mb-2">1. ACEPTACIÓN DE TÉRMINOS</h5>
                         <p className="text-sm leading-relaxed">
-                          Al acceder y utilizar los servicios digitales de Las Naves Cooperativa de Ahorro y Crédito, 
+                          Al acceder y utilizar los servicios digitales de Cooperativa de Ahorro y Crédito Vilcabamba, 
                           usted acepta cumplir con estos términos y condiciones en su totalidad.
                         </p>
                       </section>
@@ -453,7 +453,7 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
                     className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded-md shadow-sm"
                   />
                   <span className="text-slate-800 text-sm font-medium">
-                    He leído y acepto los <strong>términos y condiciones</strong> de uso de los servicios digitales de Las Naves Cooperativa de Ahorro y Crédito.
+                    He leído y acepto los <strong>términos y condiciones</strong> de uso de los servicios digitales de Cooperativa de Ahorro y Crédito Vilcabamba.
                   </span>
                 </label>
               </div>

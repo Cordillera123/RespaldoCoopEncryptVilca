@@ -471,7 +471,7 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
                       <h5 className="font-semibold text-slate-800 mb-2">1. PROPÓSITO Y ALCANCE</h5>
                       <p className="text-sm leading-relaxed">
                         Estos términos y condiciones regulan el proceso de cambio de preguntas de seguridad para usuarios 
-                        registrados en el sistema de banca digital de Las Naves Cooperativa de Ahorro y Crédito.
+                        registrados en el sistema de banca digital de Cooperativa de Ahorro y Crédito Vilcabamba.
                       </p>
                     </section>
 
@@ -540,7 +540,7 @@ const IdentityValidationPage = ({ onNext, onCancel }) => {
                   className="mt-1 h-5 w-5 text-cyan-600 focus:ring-cyan-500 border-slate-300 rounded-md shadow-sm"
                 />
                 <span className="text-slate-800 text-sm font-medium">
-                  He leído y acepto los <strong>términos y condiciones</strong> para el cambio de preguntas de seguridad de Las Naves Cooperativa de Ahorro y Crédito.
+                  He leído y acepto los <strong>términos y condiciones</strong> para el cambio de preguntas de seguridad de Cooperativa de Ahorro y Crédito Vilcabamba.
                 </span>
               </label>
             </div>
