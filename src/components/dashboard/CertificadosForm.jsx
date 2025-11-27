@@ -344,11 +344,13 @@ const CertificadosForm = () => {
           cuentaPago: cuentaPago,
           costo: costoCertificado,
           tipoVisualizacion: formData.tipoVisualizacion,
-          fecha: new Date().toLocaleDateString('es-EC', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })
+          fecha: (() => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}/${month}/${day}`;
+          })()
         };
         
         setCertificadoGenerado(certificateInfo);
@@ -429,11 +431,11 @@ const CertificadosForm = () => {
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...grayText);
-      const fechaCompleta = new Date().toLocaleDateString('es-EC', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric'
-      });
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const fechaCompleta = `${year}/${month}/${day}`;
       doc.text(fechaCompleta, 15, yPos);
 
       yPos += 15;
@@ -706,8 +708,15 @@ const CertificadosForm = () => {
       doc.setFontSize(7);
       doc.setTextColor(...grayText);
       doc.setFont('helvetica', 'italic');
+      const footerNow = new Date();
+      const footerYear = footerNow.getFullYear();
+      const footerMonth = String(footerNow.getMonth() + 1).padStart(2, '0');
+      const footerDay = String(footerNow.getDate()).padStart(2, '0');
+      const footerHours = String(footerNow.getHours()).padStart(2, '0');
+      const footerMinutes = String(footerNow.getMinutes()).padStart(2, '0');
+      const footerDate = `${footerYear}/${footerMonth}/${footerDay} ${footerHours}:${footerMinutes}`;
       doc.text(
-        `Documento generado electrónicamente el: ${new Date().toLocaleString('es-EC')}`,
+        `Documento generado electrónicamente el: ${footerDate}`,
         pageWidth / 2,
         pageHeight - 10,
         { align: 'center' }
@@ -1013,11 +1022,13 @@ const CertificadosForm = () => {
                 <div className="bg-gray-50 rounded-lg p-3">
                   <label className="text-xs text-gray-600 block mb-1">Fecha de generación</label>
                   <p className="text-sm font-semibold text-gray-800">
-                    {new Date().toLocaleDateString('es-EC', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
+                    {(() => {
+                      const now = new Date();
+                      const year = now.getFullYear();
+                      const month = String(now.getMonth() + 1).padStart(2, '0');
+                      const day = String(now.getDate()).padStart(2, '0');
+                      return `${year}/${month}/${day}`;
+                    })()}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">

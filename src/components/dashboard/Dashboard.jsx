@@ -577,12 +577,40 @@ const DashboardHomeContent = ({ recentProducts, onProductClick }) => {
           )}
         </div>
 
-        {/* Quick Actions for Transfers - SIN CAMBIOS */}
+        {/* Quick Actions - Ahorros y Certificados */}
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
-            Acciones Rápidas - Transferencias
+            Accesos Rápidos
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => onProductClick({
+                component: 'SavingsProductForm',
+                title: 'Ahorros',
+                label: 'Ahorros'
+              })}
+              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
+            >
+              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-white text-lg">💰</span>
+              </div>
+              <span className="text-sm font-medium">Ahorros</span>
+            </button>
+
+            <button
+              onClick={() => onProductClick({
+                component: 'CertificadosForm',
+                title: 'Certificados',
+                label: 'Certificados'
+              })}
+              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
+            >
+              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-white text-lg">📜</span>
+              </div>
+              <span className="text-sm font-medium">Certificados</span>
+            </button>
+
             <button
               onClick={() => onProductClick({
                 component: 'InternalTransferForm',
@@ -594,35 +622,7 @@ const DashboardHomeContent = ({ recentProducts, onProductClick }) => {
               <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
                 <span className="text-white text-lg">🏦</span>
               </div>
-              <span className="text-sm font-medium">Internas</span>
-            </button>
-
-            <button
-              onClick={() => onProductClick({
-                component: 'ExternalTransferForm',
-                title: 'Transferencia Externa',
-                label: 'Transferencia Externa'
-              })}
-              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
-            >
-              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-white text-lg">🏛️</span>
-              </div>
-              <span className="text-sm font-medium">Externas</span>
-            </button>
-
-            <button
-              onClick={() => onProductClick({
-                component: 'InternationalTransferForm',
-                title: 'Transferencia Internacional',
-                label: 'Transferencia Internacional'
-              })}
-              className="p-4 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors text-center"
-            >
-              <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-white text-lg">🌍</span>
-              </div>
-              <span className="text-sm font-medium">Internacional</span>
+              <span className="text-sm font-medium">Transferencias</span>
             </button>
           </div>
         </div>
@@ -927,7 +927,15 @@ const Dashboard = ({ userSession, onLogout }) => {
                         {userInfo?.cliente?.[0]?.apecli}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Último acceso: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        Último acceso: {(() => {
+                          const now = new Date();
+                          const year = now.getFullYear();
+                          const month = String(now.getMonth() + 1).padStart(2, '0');
+                          const day = String(now.getDate()).padStart(2, '0');
+                          const hours = String(now.getHours()).padStart(2, '0');
+                          const minutes = String(now.getMinutes()).padStart(2, '0');
+                          return `${year}/${month}/${day} ${hours}:${minutes}`;
+                        })()}
                       </p>
                     </div>
                     <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-teal-200 shadow-sm relative">

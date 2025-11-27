@@ -17,8 +17,15 @@ const InvestmentDetail = ({
   // Funciones auxiliares
   const formatDateForDisplay = (dateString) => {
     if (!dateString) return '';
-    const [month, day, year] = dateString.split('/');
-    return `${day}/${month}/${year}`;
+    // Si viene en formato MM/DD/YYYY, convertir a YYYY/MM/DD
+    if (dateString.includes('/')) {
+      const parts = dateString.split('/');
+      if (parts.length === 3) {
+        const [month, day, year] = parts;
+        return `${year}/${month}/${day}`;
+      }
+    }
+    return dateString;
   };
 
   const applyDateFilters = () => {
@@ -46,10 +53,10 @@ const InvestmentDetail = ({
     const startDate = new Date(today.getTime() - (days * 24 * 60 * 60 * 1000));
     
     const formatDate = (date) => {
+      const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${month}/${day}/${year}`;
+      return `${year}/${month}/${day}`;
     };
 
     const newFilters = {
@@ -257,27 +264,33 @@ const InvestmentDetail = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
-                  <input
-                    type="date"
-                    value={localDateFilters.fechaDesde ? formatDateForDisplay(localDateFilters.fechaDesde).split('/').reverse().join('-') : ''}
-                    onChange={(e) => {
-                      const [year, month, day] = e.target.value.split('-');
-                      handleDateFilterChange('fechaDesde', `${month}/${day}/${year}`);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={localDateFilters.fechaDesde || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        handleDateFilterChange('fechaDesde', value);
+                      }}
+                      placeholder="YYYY/MM/DD"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
-                  <input
-                    type="date"
-                    value={localDateFilters.fechaHasta ? formatDateForDisplay(localDateFilters.fechaHasta).split('/').reverse().join('-') : ''}
-                    onChange={(e) => {
-                      const [year, month, day] = e.target.value.split('-');
-                      handleDateFilterChange('fechaHasta', `${month}/${day}/${year}`);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={localDateFilters.fechaHasta || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        handleDateFilterChange('fechaHasta', value);
+                      }}
+                      placeholder="YYYY/MM/DD"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-end">
                   <button 

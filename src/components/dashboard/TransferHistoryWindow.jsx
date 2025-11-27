@@ -1,8 +1,10 @@
 // src/components/dashboard/TransferHistoryWindow.jsx
 import React, { useState, useEffect } from 'react';
-import { MdHistory, MdSearch, MdFilterList, MdRefresh, MdExpandMore, MdExpandLess } from 'react-icons/md';
+import { MdHistory, MdSearch, MdFilterList, MdRefresh, MdExpandMore, MdExpandLess, MdPictureAsPdf } from 'react-icons/md';
 import apiService from '../../services/apiService';
 import { decrypt } from '../../utils/crypto';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const TransferHistoryWindow = () => {
   // Estados
@@ -88,7 +90,7 @@ const TransferHistoryWindow = () => {
     }
   };
 
-  // Formatear fecha para mostrar (DD/MM/YYYY sin hora)
+  // Formatear fecha para mostrar (YYYY/MM/DD sin hora)
   const formatDateForDisplay = (dateString) => {
     if (!dateString) return 'N/A';
     
@@ -97,16 +99,12 @@ const TransferHistoryWindow = () => {
       if (dateString.includes('-')) {
         const [datePart] = dateString.split(' '); // Separar fecha de hora
         const [year, month, day] = datePart.split('-');
-        return `${day}/${month}/${year}`;
+        return `${year}/${month}/${day}`;
       }
-      // Si viene en formato YYYY/MM/DD
+      // Si viene en formato YYYY/MM/DD (ya está en el formato correcto)
       if (dateString.includes('/')) {
         const [datePart] = dateString.split(' '); // Separar fecha de hora si existe
-        const parts = datePart.split('/');
-        if (parts.length === 3) {
-          const [year, month, day] = parts;
-          return `${day}/${month}/${year}`;
-        }
+        return datePart; // Ya está en formato YYYY/MM/DD
       }
       return dateString;
     } catch (error) {
@@ -170,13 +168,13 @@ const TransferHistoryWindow = () => {
       // Guardar cédula SIN ENCRIPTAR
       setUserCedula(cedula);
       
-      // Establecer rango de fechas por defecto (últimos 30 días)
+      // Establecer rango de fechas por defecto (últimos 7 días)
       const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
       
       const toDate = formatDateToYYYYMMDD(today);
-      const fromDate = formatDateToYYYYMMDD(thirtyDaysAgo);
+      const fromDate = formatDateToYYYYMMDD(sevenDaysAgo);
       
       console.log('📅 [TRANSFER-HISTORY] Rango por defecto:', { from: fromDate, to: toDate });
       
@@ -226,6 +224,7 @@ const TransferHistoryWindow = () => {
         hasta: fechaHastaApi
       });
       
+     
       // Llamar a la API con cédula SIN ENCRIPTAR (makeRequest la encriptará)
       const result = await apiService.getTransferHistory(
         cedula, // ⚠️ Cédula SIN ENCRIPTAR (se encripta automáticamente)
@@ -337,11 +336,11 @@ const TransferHistoryWindow = () => {
   // Limpiar filtros y volver al rango por defecto
   const clearFilters = () => {
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
     
     const toDate = formatDateToYYYYMMDD(today);
-    const fromDate = formatDateToYYYYMMDD(thirtyDaysAgo);
+    const fromDate = formatDateToYYYYMMDD(sevenDaysAgo);
     
     setDateFilters({
       fechaDesde: fromDate,
@@ -374,6 +373,184 @@ const TransferHistoryWindow = () => {
         return [...prev, transferId];
       }
     });
+  };
+
+  // Función para generar PDF del comprobante de transferencia
+  const handleDownloadReceipt = async (transfer) => {
+    try {
+      console.log('📄 [TRANSFER-HISTORY] Generando PDF para transferencia:', transfer);
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Logo y encabezado
+      try {
+        const logoImg = await fetch('/assets/images/isocoaclasnaves.png').then(res => res.blob()).then(blob => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        });
+        doc.addImage(logoImg, 'PNG', pageWidth / 2 - 15, 10, 30, 30);
+      } catch (error) {
+        console.warn('⚠️ No se pudo cargar el logo:', error);
+      }
+
+      // Título
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('COMPROBANTE DE TRANSFERENCIA', pageWidth / 2, 50, { align: 'center' });
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Cooperativa de Ahorro y Crédito Las Naves', pageWidth / 2, 57, { align: 'center' });
+
+      // Fecha y hora actual
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}/${month}/${day}`;
+      const timeStr = now.toLocaleTimeString('es-EC');
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`Generado el ${dateStr} a las ${timeStr}`, pageWidth / 2, 63, { align: 'center' });
+
+      // Línea separadora
+      doc.setDrawColor(0, 102, 204);
+      doc.setLineWidth(0.5);
+      doc.line(20, 68, pageWidth - 20, 68);
+
+      // Información de la transferencia
+      let yPos = 80;
+
+      // Sección: Información del Beneficiario
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('INFORMACIÓN DEL BENEFICIARIO', 25, yPos + 5.5);
+
+      yPos += 15;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+
+      const beneficiaryData = [
+        ['Nombre:', transfer.nombreBeneficiario || 'N/A'],
+        ['Cédula/RUC:', transfer.cedulaBeneficiario || 'N/A'],
+        ['Cuenta Destino:', transfer.cuentaDestino || 'N/A'],
+        ['Tipo de Cuenta:', transfer.tipoCuentaDestino || 'N/A'],
+        ['Institución:', transfer.institucion || 'N/A']
+      ];
+
+      beneficiaryData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, 25, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 70, yPos);
+        yPos += 7;
+      });
+
+      // Sección: Cuenta de Origen
+      yPos += 5;
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('CUENTA DE ORIGEN', 25, yPos + 5.5);
+
+      yPos += 15;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+
+      const originData = [
+        ['Número de Cuenta:', transfer.cuentaOrigen || 'N/A'],
+        ['Institución:', transfer.institucionOrigen || 'N/A'],
+        ['Tipo de Cuenta:', transfer.tipoCuentaOrigen || 'N/A']
+      ];
+
+      originData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, 25, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 70, yPos);
+        yPos += 7;
+      });
+
+      // Sección: Detalles de la Transacción
+      yPos += 5;
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('DETALLES DE LA TRANSACCIÓN', 25, yPos + 5.5);
+
+      yPos += 15;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+
+      const amount = parseFloat(transfer.monto || 0);
+      const formattedAmount = `$${amount.toLocaleString('es-EC', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      })}`;
+
+      const transactionData = [
+        ['Monto:', formattedAmount],
+        ['Fecha:', formatDateForDisplay(transfer.fecha)],
+        ['Descripción:', transfer.detalle || 'N/A']
+      ];
+
+      transactionData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, 25, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 70, yPos);
+        yPos += 7;
+      });
+
+      // Cuadro de monto destacado
+      yPos += 10;
+      doc.setFillColor(34, 197, 94);
+      doc.roundedRect(20, yPos, pageWidth - 40, 20, 3, 3, 'F');
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('MONTO TRANSFERIDO', pageWidth / 2, yPos + 8, { align: 'center' });
+      doc.setFontSize(18);
+      doc.text(formattedAmount, pageWidth / 2, yPos + 16, { align: 'center' });
+
+      // Nota al pie
+      yPos = pageHeight - 30;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100);
+      doc.text('Este es un comprobante informativo generado electrónicamente.', pageWidth / 2, yPos, { align: 'center' });
+      doc.text('Para consultas o reclamos, comuníquese con nuestra institución.', pageWidth / 2, yPos + 5, { align: 'center' });
+
+      // Línea final
+      doc.setDrawColor(0, 102, 204);
+      doc.setLineWidth(0.3);
+      doc.line(20, yPos - 5, pageWidth - 20, yPos - 5);
+
+      // Guardar PDF
+      const fileName = `Comprobante_Transferencia_${transfer.fecha.replace(/[/:]/g, '-')}.pdf`;
+      doc.save(fileName);
+
+      console.log('✅ [TRANSFER-HISTORY] PDF generado exitosamente:', fileName);
+    } catch (error) {
+      console.error('❌ [TRANSFER-HISTORY] Error al generar PDF:', error);
+      alert('Error al generar el comprobante. Por favor intenta nuevamente.');
+    }
   };
 
   // ============================================
@@ -412,16 +589,15 @@ const TransferHistoryWindow = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Fecha Desde
             </label>
-            <input
-              type="date"
-              value={formatDateForHtmlInput(dateFilters.fechaDesde)}
-              onChange={(e) => {
-                const newDate = formatDateFromHtmlInput(e.target.value);
-                console.log('📅 Fecha desde seleccionada (YYYY/MM/DD):', newDate);
-                setDateFilters({ ...dateFilters, fechaDesde: newDate });
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={dateFilters.fechaDesde}
+                onChange={(e) => setDateFilters({ ...dateFilters, fechaDesde: e.target.value })}
+                placeholder="YYYY/MM/DD"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+              />
+            </div>
           </div>
 
           {/* Fecha Hasta */}
@@ -429,16 +605,15 @@ const TransferHistoryWindow = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Fecha Hasta
             </label>
-            <input
-              type="date"
-              value={formatDateForHtmlInput(dateFilters.fechaHasta)}
-              onChange={(e) => {
-                const newDate = formatDateFromHtmlInput(e.target.value);
-                console.log('📅 Fecha hasta seleccionada (YYYY/MM/DD):', newDate);
-                setDateFilters({ ...dateFilters, fechaHasta: newDate });
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={dateFilters.fechaHasta}
+                onChange={(e) => setDateFilters({ ...dateFilters, fechaHasta: e.target.value })}
+                placeholder="YYYY/MM/DD"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+              />
+            </div>
           </div>
 
           {/* Botones */}
@@ -499,8 +674,8 @@ const TransferHistoryWindow = () => {
                     <th className="px-6 py-4 text-left text-xs font-bold text-sky-700 uppercase tracking-wider">
                       Institución
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-sky-700 uppercase tracking-wider w-24">
-                      Detalle
+                    <th className="px-6 py-4 text-center text-xs font-bold text-sky-700 uppercase tracking-wider w-32">
+                      Acciones
                     </th>
                   </tr>
                 </thead>
@@ -537,22 +712,31 @@ const TransferHistoryWindow = () => {
                             {transfer.institucion}
                           </span>
                         </td>
-                        <td className="px-6 py-5 text-center">
-                          <button
-                            onClick={() => toggleRowExpansion(transfer.id)}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200 ${
-                              expandedRows.includes(transfer.id)
-                                ? 'bg-sky-600 text-white shadow-md'
-                                : 'bg-sky-100 text-sky-600 hover:bg-sky-200'
-                            }`}
-                            title={expandedRows.includes(transfer.id) ? "Ocultar detalles" : "Ver detalles"}
-                          >
-                            {expandedRows.includes(transfer.id) ? (
-                              <MdExpandLess className="text-2xl" />
-                            ) : (
-                              <MdExpandMore className="text-2xl" />
-                            )}
-                          </button>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center justify-center space-x-2">
+                            <button
+                              onClick={() => toggleRowExpansion(transfer.id)}
+                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200 ${
+                                expandedRows.includes(transfer.id)
+                                  ? 'bg-sky-600 text-white shadow-md'
+                                  : 'bg-sky-100 text-sky-600 hover:bg-sky-200'
+                              }`}
+                              title={expandedRows.includes(transfer.id) ? "Ocultar detalles" : "Ver detalles"}
+                            >
+                              {expandedRows.includes(transfer.id) ? (
+                                <MdExpandLess className="text-2xl" />
+                              ) : (
+                                <MdExpandMore className="text-2xl" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleDownloadReceipt(transfer)}
+                              className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                              title="Descargar comprobante PDF"
+                            >
+                              <MdPictureAsPdf className="text-xl" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       
@@ -577,6 +761,10 @@ const TransferHistoryWindow = () => {
                                   <div className="flex items-center justify-between py-2 border-b border-gray-100">
                                     <span className="text-sm text-gray-500 font-medium">Cédula/RUC</span>
                                     <span className="text-sm font-bold text-gray-900">{transfer.cedulaBeneficiario}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                    <span className="text-sm text-gray-500 font-medium">Cuenta Destino</span>
+                                    <span className="text-sm font-bold text-gray-900">{transfer.cuentaDestino}</span>
                                   </div>
                                   <div className="flex items-center justify-between py-2">
                                     <span className="text-sm text-gray-500 font-medium">Tipo de Cuenta</span>

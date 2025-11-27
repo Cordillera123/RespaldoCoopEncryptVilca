@@ -439,137 +439,192 @@ const TransferExt = ({ onBack, preselectedContact = null, onShowAddAccount }) =>
       const data = transferResult?.transferencia || {};
       const beneficiario = transferData?.beneficiario || {};
 
-      // Crear documento PDF con configuración estándar
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
+      const pageHeight = doc.internal.pageSize.getHeight();
 
-      // ============================================
-      // CARGAR LOGO ESTÁNDAR
-      // ============================================
+      // Cargar logo
       const logoPath = '/assets/images/isocoaclasnaves.png';
+      let logoImg = null;
 
       try {
         const response = await fetch(logoPath);
         if (response.ok) {
           const blob = await response.blob();
-          const logoData = await new Promise((resolve) => {
+          logoImg = await new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.readAsDataURL(blob);
           });
-
-          // Logo estándar: 12x12 píxeles en posición (15, 13)
-          doc.addImage(logoData, 'PNG', 15, 13, 12, 12);
         }
       } catch (logoError) {
         console.warn('No se pudo cargar el logo:', logoError);
       }
 
-      // ============================================
-      // ENCABEZADO ESTÁNDAR
-      // ============================================
+      // Logo centrado (30x30)
+      if (logoImg) {
+        doc.addImage(logoImg, 'PNG', pageWidth / 2 - 15, 10, 30, 30);
+      }
 
       // Título principal
+      let yPos = 45;
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('COMPROBANTE DE TRANSFERENCIA', pageWidth / 2, yPos, { align: 'center' });
+
+      // Subtítulo cooperativa
+      yPos += 8;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text('COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA', pageWidth / 2, yPos, { align: 'center' });
+
+      // Fecha de generación
+      yPos += 5;
+      doc.setFontSize(9);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentDate = `${year}/${month}/${day} ${hours}:${minutes}`;
+      doc.text(`Generado: ${currentDate}`, pageWidth / 2, yPos, { align: 'center' });
+
+      yPos += 12;
+
+      // SECCIÓN: INFORMACIÓN DEL BENEFICIARIO
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.text('COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA', pageWidth / 2, 20, { align: 'center' });
+      doc.setTextColor(0, 102, 204);
+      doc.text('INFORMACIÓN DEL BENEFICIARIO', 25, yPos + 5.5);
 
-      // Subtítulo
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('VILCABAMBA - LOJA', pageWidth / 2, 26, { align: 'center' });
-
-      // Fecha
-      const currentDate = new Date().toLocaleString('es-EC', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      doc.setFontSize(7);
-      doc.text(`Fecha: ${currentDate}`, pageWidth - margin, 20, { align: 'right' });
-
-      // ============================================
-      // TÍTULO DEL DOCUMENTO
-      // ============================================
+      yPos += 12;
       doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'bold');
-      doc.text('COMPROBANTE DE TRANSFERENCIA EXTERNA', pageWidth / 2, 35, { align: 'center' });
-
-      // Referencia
-      doc.setFontSize(7);
+      doc.text('Beneficiario:', 25, yPos);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Referencia: ${data.numeroReferencia || 'N/A'}`, pageWidth / 2, 42, { align: 'center' });
+      doc.text(beneficiario.name || 'N/A', 70, yPos);
 
-      // ============================================
-      // TABLA DE DATOS ESTÁNDAR
-      // ============================================
-
-      // Determinar el tipo de transferencia para los datos
-      const isCoopTransfer = transferData?.beneficiario?.bankCode === undefined;
-
-      const tableData = [
-        ['Monto', formatCurrency(data.monto ?? transferData?.monto ?? 0)],
-        ['Cuenta Origen', transferData?.cuentaOrigen ?? ''],
-        ['Beneficiario', beneficiario.name ?? ''],
-        ...(isCoopTransfer
-          ? [
-            ['Cuenta Destino', data.cuentaDestino ?? transferData?.cuentaDestino ?? ''],
-            ['Tipo', 'Transferencia Cooperativa']
-          ]
-          : [
-            ['Banco Destino', beneficiario.bank ?? ''],
-            ['Cuenta Destino', data.cuentaDestino ?? transferData?.cuentaDestino ?? ''],
-            ['Tipo', 'Transferencia Externa']
-          ]
-        ),
-        ['Descripción', data.descripcion ?? transferData?.descripcion ?? '']
-      ];
-
-      autoTable(doc, {
-        startY: 50,
-        head: [['Concepto', 'Detalle']],
-        body: tableData,
-        theme: 'striped',
-        styles: {
-          fontSize: 7,
-          cellPadding: 0.3,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontSize: 8,
-          fontStyle: 'bold'
-        },
-        margin: { left: margin, right: margin }
-      });
-
-      // ============================================
-      // PIE DE PÁGINA ESTÁNDAR
-      // ============================================
-      const finalY = doc.lastAutoTable?.finalY || 100;
-
-      doc.setFontSize(6);
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Banco Destino:', 25, yPos);
       doc.setFont('helvetica', 'normal');
+      doc.text(beneficiario.bank || 'N/A', 70, yPos);
+
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cuenta Destino:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.cuentaDestino || transferData?.cuentaDestino || 'N/A', 70, yPos);
+
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Tipo:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Transferencia Externa', 70, yPos);
+
+      yPos += 12;
+
+      // SECCIÓN: CUENTA DE ORIGEN
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('CUENTA DE ORIGEN', 25, yPos + 5.5);
+
+      yPos += 12;
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cuenta Origen:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(transferData?.cuentaOrigen || 'N/A', 70, yPos);
+
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Institución:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text('COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA', 70, yPos);
+
+      yPos += 12;
+
+      // SECCIÓN: DETALLES DE LA TRANSACCIÓN
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('DETALLES DE LA TRANSACCIÓN', 25, yPos + 5.5);
+
+      yPos += 12;
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Referencia:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.numeroReferencia || 'N/A', 70, yPos);
+
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fecha:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(currentDate, 70, yPos);
+
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Descripción:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      const descripcion = data.descripcion || transferData?.descripcion || 'Sin descripción';
+      doc.text(descripcion, 70, yPos);
+
+      yPos += 12;
+
+      // CAJA DEL MONTO (verde con borde redondeado)
+      const boxHeight = 20;
+      doc.setFillColor(34, 197, 94);
+      doc.roundedRect(20, yPos, pageWidth - 40, boxHeight, 3, 3, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MONTO TRANSFERIDO', pageWidth / 2, yPos + 8, { align: 'center' });
+
+      const formattedAmount = new Intl.NumberFormat('es-EC', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(data.monto ?? transferData?.monto ?? 0);
+
+      doc.setFontSize(18);
+      doc.text(formattedAmount, pageWidth / 2, yPos + 16, { align: 'center' });
+
+      // Footer
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      const footerY = pageHeight - 20;
       doc.text(
-        'Este comprobante es válido como soporte de la transacción realizada.',
+        'Este es un comprobante informativo de su transacción.',
         pageWidth / 2,
-        finalY + 15,
+        footerY,
         { align: 'center' }
       );
-
       doc.text(
         'COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA - Vilcabamba, Loja',
         pageWidth / 2,
-        finalY + 22,
+        footerY + 5,
         { align: 'center' }
       );
 
       // Guardar PDF
-      const fileName = `comprobante_transferencia_ext_${data.numeroReferencia || Date.now()}.pdf`;
+      const fileName = `Comprobante_Transferencia_Externa_${data.numeroReferencia || Date.now()}.pdf`;
       doc.save(fileName);
 
     } catch (error) {

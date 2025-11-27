@@ -262,172 +262,148 @@ const SameAccounts = ({ onBack, openWindow }) => {
 
   const handlePrintReceipt = async () => {
     try {
+      console.log('📄 [SAME-ACCOUNTS] Generando PDF del comprobante');
       const data = transferResult?.transferencia || {};
 
-      // Crear nuevo documento PDF
       const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.width;
-      const pageHeight = doc.internal.pageSize.height;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
 
-      // Cargar logo (EXACTAMENTE IGUAL A SAVINGS)
-      let logoDataUrl = null;
+      // Logo y encabezado
       try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = "anonymous";
-
-        await new Promise((resolve, reject) => {
-          logoImg.onload = () => {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-            canvas.width = logoImg.width;
-            canvas.height = logoImg.height;
-            ctx.drawImage(logoImg, 0, 0);
-            logoDataUrl = canvas.toDataURL("image/png");
-            resolve();
-          };
-          logoImg.onerror = reject;
-          logoImg.src = "/assets/images/isocoaclasnaves.png";
+        const logoImg = await fetch('/assets/images/isocoaclasnaves.png').then(res => res.blob()).then(blob => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
         });
+        doc.addImage(logoImg, 'PNG', pageWidth / 2 - 15, 10, 30, 30);
       } catch (error) {
-        console.warn("⚠️ [PDF] No se pudo cargar el logo:", error);
+        console.warn('⚠️ No se pudo cargar el logo:', error);
       }
 
-      // HEADER - Logo y título (EXACTAMENTE IGUAL A SAVINGS)
-      if (logoDataUrl) {
-        // Logo: 12x12 en posición 15,13
-        doc.addImage(logoDataUrl, "PNG", 15, 13, 12, 12);
-      }
+      // Título
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('COMPROBANTE DE TRANSFERENCIA', pageWidth / 2, 50, { align: 'center' });
 
-      // Título principal (fontSize 10)
       doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("COOPERATIVA DE AHORRO Y CREDITO VILCABAMBA", pageWidth / 2, 18, {
-        align: "center",
-      });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Cooperativa de Ahorro y Crédito Las Naves', pageWidth / 2, 57, { align: 'center' });
 
-      // Subtítulo (fontSize 11)
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.text("VILCABAMBA - LOJA", pageWidth / 2, 24, { align: "center" });
+      // Fecha y hora actual
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}/${month}/${day}`;
+      const timeStr = now.toLocaleTimeString('es-EC');
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`Generado el ${dateStr} a las ${timeStr}`, pageWidth / 2, 63, { align: 'center' });
 
       // Línea separadora
-      doc.setLineWidth(0.3);
-      doc.line(15, 32, pageWidth - 15, 32);
+      doc.setDrawColor(0, 102, 204);
+      doc.setLineWidth(0.5);
+      doc.line(20, 68, pageWidth - 20, 68);
 
-      // COMPROBANTE DE TRANSFERENCIA título (fontSize 8)
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.text("COMPROBANTE DE TRANSFERENCIA", pageWidth / 2, 30, { align: "center" });
+      // Información de la transferencia
+      let yPos = 80;
 
-      // Información del comprobante (fontSize 7)
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
+      // Sección: Cuentas
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('CUENTAS', 25, yPos + 5.5);
 
-      const currentDate = new Date().toLocaleString('es-EC', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      yPos += 15;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
 
-      // PRIMERA LÍNEA
-      doc.text(`Fecha: ${currentDate}`, 15, 38);
-      doc.text(`Referencia: ${data.numeroReferencia || 'N/A'}`, 120, 38);
-
-      // SEGUNDA LÍNEA
-      doc.text("Tipo: Transferencia entre Cuentas Propias", 15, 42);
-
-      // Preparar datos para la tabla
-      const tableData = [
-        ['Monto', formatCurrency(data.monto ?? transferData?.monto ?? 0)],
-        ['Cuenta Origen', transferData?.cuentaOrigen ?? data.cuentaOrigen ?? ''],
-        ['Cuenta Destino', transferData?.cuentaDestino ?? data.cuentaDestino ?? ''],
-        ['Descripción', data.descripcion ?? transferData?.descripcion ?? '']
+      const accountsData = [
+        ['Cuenta Origen:', transferData?.cuentaOrigen || data.cuentaOrigen || 'N/A'],
+        ['Cuenta Destino:', transferData?.cuentaDestino || data.cuentaDestino || 'N/A']
       ];
 
-      // Configurar tabla (EXACTAMENTE IGUAL A SAVINGS)
-      const tableConfig = {
-        startY: 50,
-        head: [['Detalle', 'Información']],
-        body: tableData,
-        theme: "striped", // IGUAL A SAVINGS
-        styles: {
-          fontSize: 7, // IGUAL A SAVINGS
-          cellPadding: 0.3, // IGUAL A SAVINGS
-          lineColor: [200, 200, 200], // IGUAL A SAVINGS
-          lineWidth: 0.3, // IGUAL A SAVINGS
-          minCellHeight: 6, // IGUAL A SAVINGS
-          valign: 'middle', // IGUAL A SAVINGS
-        },
-        headStyles: {
-          fillColor: [240, 240, 240], // IGUAL A SAVINGS
-          textColor: [0, 0, 0], // IGUAL A SAVINGS
-          fontStyle: "bold",
-          fontSize: 7, // IGUAL A SAVINGS
-          halign: "center",
-          minCellHeight: 6, // IGUAL A SAVINGS
-          cellPadding: 0.3, // IGUAL A SAVINGS
-          valign: 'middle',
-          lineColor: [200, 200, 200], // IGUAL A SAVINGS
-          lineWidth: 0.3, // IGUAL A SAVINGS
-        },
-        columnStyles: {
-          0: {
-            halign: "left",
-            cellWidth: 60,
-            fontStyle: 'bold',
-            cellPadding: 0.2 // IGUAL A SAVINGS
-          },
-          1: {
-            halign: "left",
-            cellWidth: 120,
-            cellPadding: 0.3 // IGUAL A SAVINGS
-          }
-        },
-        alternateRowStyles: {
-          fillColor: [248, 248, 248], // IGUAL A SAVINGS
-        },
-        margin: { left: 15, right: 15, top: 50 }, // IGUAL A SAVINGS
-        tableWidth: pageWidth - 30 // IGUAL A SAVINGS
-      };
+      accountsData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, 25, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 70, yPos);
+        yPos += 7;
+      });
 
-      // Generar tabla
-      doc.autoTable(tableConfig);
+      // Sección: Detalles de la Transacción
+      yPos += 5;
+      doc.setFillColor(240, 248, 255);
+      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 102, 204);
+      doc.text('DETALLES DE LA TRANSACCIÓN', 25, yPos + 5.5);
 
-      // Footer (EXACTAMENTE IGUAL A SAVINGS)
-      const finalY = doc.lastAutoTable.finalY + 5;
+      yPos += 15;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
 
-      if (finalY < pageHeight - 20) {
-        doc.setFontSize(6); // IGUAL A SAVINGS
-        doc.setFont("helvetica", "normal");
+      const amount = parseFloat(data.monto || transferData?.monto || 0);
+      const formattedAmount = `$${amount.toLocaleString('es-EC', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      })}`;
 
-        // Información alineada a la izquierda
-        doc.text("Este comprobante es un resumen de la operación realizada.", 15, finalY);
-        doc.text("Conserva este documento para futuras consultas.", 15, finalY + 5);
+      const transactionData = [
+        ['Monto:', formattedAmount],
+        ['Referencia:', data.numeroReferencia || 'N/A'],
+        ['Descripción:', data.descripcion || transferData?.descripcion || 'N/A']
+      ];
 
-        // Fecha de generación alineada a la derecha (EXACTAMENTE IGUAL A SAVINGS)
-        const fechaGeneracion = new Date().toLocaleString("es-EC", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        doc.text(`Generado: ${fechaGeneracion}`, pageWidth - 15, finalY, { align: "right" });
-      }
+      transactionData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, 25, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 70, yPos);
+        yPos += 7;
+      });
 
-      // Generar nombre del archivo
-      const fileName = `comprobante_transferencia_${data.numeroReferencia || Date.now()}.pdf`;
+      // Cuadro de monto destacado
+      yPos += 10;
+      doc.setFillColor(34, 197, 94);
+      doc.roundedRect(20, yPos, pageWidth - 40, 20, 3, 3, 'F');
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('MONTO TRANSFERIDO', pageWidth / 2, yPos + 8, { align: 'center' });
+      doc.setFontSize(18);
+      doc.text(formattedAmount, pageWidth / 2, yPos + 16, { align: 'center' });
 
-      // Descargar PDF
+      // Nota al pie
+      yPos = pageHeight - 30;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100);
+      doc.text('Este es un comprobante informativo generado electrónicamente.', pageWidth / 2, yPos, { align: 'center' });
+      doc.text('Para consultas o reclamos, comuníquese con nuestra institución.', pageWidth / 2, yPos + 5, { align: 'center' });
+
+      // Línea final
+      doc.setDrawColor(0, 102, 204);
+      doc.setLineWidth(0.3);
+      doc.line(20, yPos - 5, pageWidth - 20, yPos - 5);
+
+      // Guardar PDF
+      const fileName = `Comprobante_Transferencia_Propia_${data.numeroReferencia || Date.now()}.pdf`;
       doc.save(fileName);
 
-      console.log('✅ [PDF] Comprobante de transferencia generado exitosamente');
-
+      console.log('✅ [SAME-ACCOUNTS] PDF generado exitosamente:', fileName);
     } catch (error) {
-      console.error('❌ [PDF] Error al generar comprobante:', error);
-      alert('Error al generar el comprobante. Intente nuevamente.');
+      console.error('❌ [SAME-ACCOUNTS] Error al generar PDF:', error);
+      alert('Error al generar el comprobante. Por favor intenta nuevamente.');
     }
   };
 
