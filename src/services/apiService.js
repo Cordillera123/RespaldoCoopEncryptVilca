@@ -10,7 +10,7 @@ const API_CONFIG = {
   baseUrl: '/api/prctrans.php',         // API principal
   baseUrlWithL: '/api-l/prctrans.php',  // API con 'L' (ciertos procesos)
   
-  token: '0999SolSTIC20220719',
+  token: '0060CoacVilcabamba20220511',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -1376,7 +1376,7 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     // PRUEBA 1: Petición directa sin proxy (para comparar)
     console.log('🧪 [DEBUG] === PRUEBA 1: Petición directa (sin proxy) ===');
     try {
-      const directUrl = 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php';
+      const directUrl = 'http://172.31.30.180/wsVirtualCoopSrvP/ws_server/prctrans.php';
       console.log('🌐 [DEBUG] URL directa:', directUrl);
 
       const directResponse = await fetch(directUrl, {

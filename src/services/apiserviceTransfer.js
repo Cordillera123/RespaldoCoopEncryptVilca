@@ -11,7 +11,7 @@ import { decrypt } from '../utils/crypto/encryptionService.js';
 
 const API_CONFIG = {
   baseUrl: '/api-l/prctrans.php', // SOLO servidor con L
-  token: '0999SolSTIC20220719',
+  token: '0060CoacVilcabamba20220511',
   // Aumentado a 60 segundos porque algunas operaciones en el servidor pueden tardar
   // más de 10s y provocar abortos prematuros en la UI (ver: TIMEOUT_ERROR).
   timeout: 60000,
