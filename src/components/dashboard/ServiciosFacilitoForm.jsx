@@ -22,6 +22,7 @@ const ServiciosFacilitoForm = () => {
       if (result.success) {
         console.log('✅ [FACILITO-COMPONENT] Información cargada exitosamente');
         console.log('📊 [FACILITO-COMPONENT] Datos completos:', result.data);
+        console.log('🔗 [FACILITO-COMPONENT] URL Disponible:', result.data?.urlDisponible);
         console.log('🔗 [FACILITO-COMPONENT] URL Facilito:', result.data?.urlFacilito);
         console.log('🔗 [FACILITO-COMPONENT] URL Original:', result.data?.urlOriginal);
         setServiciosInfo(result.data);
@@ -179,18 +180,8 @@ const ServiciosFacilitoForm = () => {
                 </div>
               </div>
 
-              {/* Botón de acceso - Solo mostrar si hay URL configurada */}
-              {(() => {
-                const hasUrl = !!(serviciosInfo?.urlFacilito || serviciosInfo?.urlOriginal);
-                console.log('🔍 [FACILITO-RENDER] Verificando URL...');
-                console.log('🔍 [FACILITO-RENDER] serviciosInfo:', serviciosInfo);
-                console.log('🔍 [FACILITO-RENDER] urlFacilito:', serviciosInfo?.urlFacilito);
-                console.log('🔍 [FACILITO-RENDER] urlOriginal:', serviciosInfo?.urlOriginal);
-                console.log('🔍 [FACILITO-RENDER] Condición:', hasUrl);
-                return null;
-              })()}
-              
-              {(serviciosInfo?.urlFacilito || serviciosInfo?.urlOriginal) ? (
+              {/* Botón de acceso - Solo mostrar si urlDisponible es true */}
+              {serviciosInfo?.urlDisponible ? (
                 <>
                   <button
                     onClick={openFacilito}

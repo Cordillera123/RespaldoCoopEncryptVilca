@@ -436,7 +436,7 @@ const UserCredentialsPage = ({ registrationData, onNext, onBack }) => {
                       <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <p className="text-xs text-blue-800">
                           <strong>Última actualización:</strong> Octubre 2025<br/>
-                          <strong>Contacto:</strong> info@lasnaves.coop
+                          <strong>Contacto:</strong> info@lascacvil.coop
                         </p>
                       </div>
                     </div>

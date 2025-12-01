@@ -3071,60 +3071,7 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
 
   // Reemplaza el método getServiciosFacilito en tu ApiService con esta versión simple:
 
-  async getServiciosFacilito(cedula) {
-    console.log('🏪 [FACILITO] Obteniendo servicios Facilito para cédula:', cedula);
-
-    if (!cedula || !cedula.trim()) {
-      return {
-        success: false,
-        error: {
-          message: 'La cédula es requerida',
-          code: 'CEDULA_REQUIRED'
-        }
-      };
-    }
-
-    const serviciosData = {
-      prccode: '2000',
-      idecl: cedula.trim()
-    };
-
-    console.log('📤 [FACILITO] Solicitando información de servicios:', serviciosData);
-
-    const result = await this.makeRequest(serviciosData);
-
-    if (result.success) {
-      console.log('🔍 [DEBUG] Estructura completa de la respuesta:', result.data);
-      console.log('🔍 [DEBUG] Todas las propiedades:', Object.keys(result.data));
-
-      // Simplificado: Si la API responde correctamente, asumimos que tiene acceso
-      if (result.data && Object.keys(result.data).length > 0) {
-        console.log('✅ [FACILITO] API responde correctamente, servicios disponibles');
-
-        return {
-          success: true,
-          data: {
-            cliente: result.data.cliente || result.data,
-            urlFacilito: 'https://pagos.facilito.com.ec/aplicacion/coac_las_naves', // URL fija
-            serviciosInfo: result.data,
-            message: result.data.msg || 'Servicios disponibles'
-          },
-          message: 'Información de servicios obtenida correctamente'
-        };
-      } else {
-        console.log('❌ [FACILITO] Respuesta vacía de la API');
-        return {
-          success: false,
-          error: {
-            message: 'No se recibieron datos del servidor',
-            code: 'EMPTY_RESPONSE'
-          }
-        };
-      }
-    }
-
-    return result;
-  }
+  // ⚠️ MÉTODO ELIMINADO - Se usa el método getServiciosFacilito más abajo con lógica correcta
   /**
    * Método de conveniencia para obtener servicios del usuario actual
    */
@@ -3227,7 +3174,8 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
   }
 
   /**
-   * Actualizar el método getServiciosFacilito para usar proxy
+   * Obtener información de servicios Facilito del usuario
+   * ✅ SOLO USA urlpgfcl DE LA BASE DE DATOS - SIN URLs QUEMADAS
    */
   async getServiciosFacilito(cedula) {
     console.log('🏪 [FACILITO] Obteniendo servicios Facilito para cédula:', cedula);
@@ -3252,46 +3200,48 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     const result = await this.makeRequest(serviciosData);
 
     if (result.success) {
-      console.log('🔍 [DEBUG] Estructura completa de la respuesta:', result.data);
-      console.log('🔍 [DEBUG] Todas las propiedades:', Object.keys(result.data));
+      console.log('🔍 [FACILITO] Respuesta completa del servidor:', result.data);
+      console.log('🔍 [FACILITO] Campo urlpgfcl:', result.data.urlpgfcl);
+      console.log('🔍 [FACILITO] ¿urlpgfcl está vacío?:', !result.data.urlpgfcl || result.data.urlpgfcl.trim() === '');
 
-      // Buscar URL de Facilito
-      let urlFacilito = null;
-
-      if (result.data.urlpgfcl && result.data.urlpgfcl.trim()) {
-        urlFacilito = result.data.urlpgfcl;
-        console.log('✅ [FACILITO] URL encontrada en urlpgfcl:', urlFacilito);
-      } else if (result.data.nommatri && result.data.nommatri.includes('Matriz')) {
-        urlFacilito = 'https://pagos.facilito.com.ec/aplicacion/coac_las_naves';
-        console.log('🔄 [FACILITO] Usando URL fija como fallback:', urlFacilito);
-      }
-
-      if (urlFacilito) {
-        // 🔧 CONVERTIR URL PARA USAR CON PROXY
-        const proxyUrl = this.getFacilitoProxyUrl(urlFacilito);
-        console.log('🎯 [FACILITO] URL final con proxy:', proxyUrl);
-
+      // ✅ VALIDAR SI urlpgfcl EXISTE Y NO ESTÁ VACÍO
+      const urlpgfcl = result.data.urlpgfcl;
+      
+      if (!urlpgfcl || urlpgfcl.trim() === '') {
+        console.log('⚠️ [FACILITO] URL no disponible en la base de datos (campo vacío)');
         return {
           success: true,
           data: {
             cliente: result.data.cliente || result.data,
-            urlFacilito: proxyUrl, // Usar URL con proxy
-            urlOriginal: urlFacilito, // Guardar URL original por si acaso
+            urlFacilito: null, // ✅ NULL cuando no hay URL
+            urlOriginal: null,
+            urlDisponible: false, // ✅ Flag para el componente
             serviciosInfo: result.data,
-            message: result.data.msg || 'Servicios disponibles'
+            message: 'Servicio Facilito no disponible para este usuario'
           },
-          message: 'Información de servicios obtenida correctamente'
-        };
-      } else {
-        console.log('❌ [FACILITO] No se encontró URL de servicios');
-        return {
-          success: false,
-          error: {
-            message: 'No se encontró URL de servicios Facilito en la respuesta',
-            code: 'NO_FACILITO_URL'
-          }
+          message: 'Información de servicios obtenida (sin URL Facilito)'
         };
       }
+
+      // ✅ URL EXISTE - Procesarla para usar con proxy
+      console.log('✅ [FACILITO] URL encontrada en BD:', urlpgfcl);
+      
+      // Convertir URL para usar con proxy (solo en desarrollo)
+      const proxyUrl = this.getFacilitoProxyUrl(urlpgfcl);
+      console.log('🎯 [FACILITO] URL procesada:', proxyUrl);
+
+      return {
+        success: true,
+        data: {
+          cliente: result.data.cliente || result.data,
+          urlFacilito: proxyUrl, // ✅ URL con proxy
+          urlOriginal: urlpgfcl, // ✅ URL original de BD
+          urlDisponible: true, // ✅ Flag para mostrar botón
+          serviciosInfo: result.data,
+          message: result.data.msg || 'Servicios disponibles'
+        },
+        message: 'Información de servicios obtenida correctamente'
+      };
     }
 
     return result;
