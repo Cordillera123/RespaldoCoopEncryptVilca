@@ -5,7 +5,7 @@ const FORGOT_PASSWORD_CONFIG = {
   // ÚNICA URL: Todas las peticiones van al servidor con L
   baseUrl: '/api-l/prctrans.php', // SOLO servidor con L
     
-  token: '0060CoacVilcabamba20220511',
+  token: '0999SolSTIC20220719',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

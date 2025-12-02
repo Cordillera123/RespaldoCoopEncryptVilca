@@ -64,6 +64,9 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
   const [isValidatingId, setIsValidatingId] = useState(false);
   const [isIdentificationValid, setIsIdentificationValid] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingClientInfo, setIsLoadingClientInfo] = useState(false); // Nuevo: cargando info del cliente local
+  const [isLocalClient, setIsLocalClient] = useState(false); // Nuevo: indica si es cliente local CACVIL
+  const [autoFilledFields, setAutoFilledFields] = useState({}); // Nuevo: campos autocompletados
 
   // Estados de validación
   const [errors, setErrors] = useState({});
@@ -287,10 +290,19 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
     
     setFormData(prev => ({
       ...prev,
-      bankDestination: bank.code
+      bankDestination: bank.code,
+      // Limpiar campos personales al cambiar de banco
+      beneficiaryName: '',
+      email: '',
+      phone: ''
     }));
     setBankSearch(bank.name);
     setShowBankDropdown(false);
+    
+    // Resetear estados de cliente local
+    setIsLocalClient(false);
+    setAutoFilledFields({});
+    setIsIdentificationValid(false);
 
     // Limpiar error si existe
     if (errors.bankDestination) {
@@ -419,12 +431,52 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
       setIsValidatingId(true);
       setIdentificationError(''); // Limpiar error si el formato es correcto
 
-      // Simular validación
-      setTimeout(() => {
+      // Verificar si es banco CACVIL (transferencia local)
+      const isLocalBank = detectIfCoopVilcabamba(formData.bankDestination);
+      console.log('🏦 [NEW-CONTACT] ¿Es banco local CACVIL?:', isLocalBank);
+
+      if (isLocalBank) {
+        // Si es transferencia local, buscar info del cliente con servicio 2305
+        console.log('🔍 [NEW-CONTACT] Banco local detectado - Buscando información del cliente...');
+        const clientFound = await fetchLocalClientInfo(idNumber);
+        
         setIsIdentificationValid(true);
         setIsValidatingId(false);
-        console.log('✅ [NEW-CONTACT] Identificación validada - habilitando campos personales');
-      }, 800);
+        
+        if (clientFound) {
+          console.log('✅ [NEW-CONTACT] Cliente local encontrado - Campos autocompletados');
+        } else {
+          console.log('ℹ️ [NEW-CONTACT] Cliente no encontrado en CACVIL - Llenar manualmente');
+          // Limpiar campos si no se encontró
+          setFormData(prev => ({
+            ...prev,
+            beneficiaryName: '',
+            email: '',
+            phone: ''
+          }));
+          setAutoFilledFields({});
+          setIsLocalClient(false);
+        }
+      } else {
+        // Si es transferencia externa, comportamiento normal (campos manuales)
+        console.log('🌐 [NEW-CONTACT] Banco externo - Campos manuales habilitados');
+        setIsLocalClient(false);
+        setAutoFilledFields({});
+        
+        // Limpiar campos para que el usuario los llene
+        setFormData(prev => ({
+          ...prev,
+          beneficiaryName: '',
+          email: '',
+          phone: ''
+        }));
+
+        setTimeout(() => {
+          setIsIdentificationValid(true);
+          setIsValidatingId(false);
+          console.log('✅ [NEW-CONTACT] Identificación validada - habilitando campos personales (manuales)');
+        }, 800);
+      }
     } else {
       setIsIdentificationValid(false);
       setIsValidatingId(false);
@@ -683,26 +735,119 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
 };
   // Función para detectar si es CACVIL (Cooperativa Vilcabamba)
   const detectIfCoopVilcabamba = (bankCode) => {
-  // Lista de códigos que corresponden a CACVIL - Cooperativa Vilcabamba
-  // '136' es el código oficial de CACVIL en el backend
-  const cacvilCodes = ['136', 'CACVIL', '999'];
-  
-  // Obtener información del banco por código
-  const bankInfo = banks.find(b => b.code === bankCode);
-  const bankName = bankInfo?.name || '';
-  
-  console.log('🔍 [NEW-CONTACT] Verificando banco:', { bankCode, bankName });
-  
-  // Verificar por código o por nombre
-  const isByCode = cacvilCodes.includes(bankCode) || cacvilCodes.includes(bankCode?.toString());
-  const isByName = bankName.toUpperCase().includes('CACVIL') || 
-                   bankName.toUpperCase().includes('VILCABAMBA') ||
-                   bankName.toUpperCase().includes('COOPERATIVA VILCABAMBA');
-  
-  console.log('🏦 [NEW-CONTACT] Resultado detección:', { isByCode, isByName, finalResult: isByCode || isByName });
-  
-  return isByCode || isByName;
-};
+    // Lista de códigos que corresponden a CACVIL - Cooperativa Vilcabamba
+    // '136' es el código oficial de CACVIL en el backend
+    const cacvilCodes = ['136', 'CACVIL', '999'];
+    
+    // Obtener información del banco por código
+    const bankInfo = banks.find(b => b.code === bankCode);
+    const bankName = bankInfo?.name || '';
+    
+    console.log('🔍 [NEW-CONTACT] Verificando banco:', { bankCode, bankName });
+    
+    // Verificar por código o por nombre
+    const isByCode = cacvilCodes.includes(bankCode) || cacvilCodes.includes(bankCode?.toString());
+    const isByName = bankName.toUpperCase().includes('CACVIL') || 
+                     bankName.toUpperCase().includes('VILCABAMBA') ||
+                     bankName.toUpperCase().includes('COOPERATIVA VILCABAMBA');
+    
+    console.log('🏦 [NEW-CONTACT] Resultado detección:', { isByCode, isByName, finalResult: isByCode || isByName });
+    
+    return isByCode || isByName;
+  };
+
+  // Nueva función para buscar información del cliente local usando servicio 2305
+  const fetchLocalClientInfo = async (cedula) => {
+    try {
+      setIsLoadingClientInfo(true);
+      console.log('🔍 [NEW-CONTACT] Buscando información del cliente local para cédula:', cedula);
+
+      const result = await apiService.getClientProfile(cedula);
+
+      if (result.success && result.data.cliente) {
+        const cliente = result.data.cliente;
+        console.log('✅ [NEW-CONTACT] Cliente local encontrado:', cliente);
+
+        // Importar función de desencriptación
+        const { decrypt } = await import('@/utils/crypto/encryptionService');
+
+        // Desencriptar campos si es necesario
+        let nombre = '';
+        if (cliente.apecli && cliente.nomcli) {
+          nombre = `${cliente.apecli} ${cliente.nomcli}`;
+        }
+
+        let telefono = cliente.tlfcel || '';
+        if (telefono && (telefono.includes('==') || telefono.includes('+') || telefono.includes('/'))) {
+          try {
+            const looksLikeBase64 = !telefono.includes('@') && /^[A-Za-z0-9+/=]+$/.test(telefono);
+            if (looksLikeBase64) {
+              telefono = decrypt(telefono);
+            }
+          } catch (err) {
+            console.warn('⚠️ [NEW-CONTACT] Error desencriptando teléfono:', err);
+          }
+        }
+
+        let email = cliente.direma || '';
+        if (email && (email.includes('==') || email.includes('+') || email.includes('/'))) {
+          try {
+            const looksLikeBase64 = !email.includes('@') && /^[A-Za-z0-9+/=]+$/.test(email);
+            if (looksLikeBase64) {
+              email = decrypt(email);
+            }
+          } catch (err) {
+            console.warn('⚠️ [NEW-CONTACT] Error desencriptando email:', err);
+          }
+        }
+
+        // Limpiar teléfono (quitar código de país si viene)
+        let telefonoLimpio = telefono.replace(/^\+593/, '').replace(/^593/, '');
+        
+        // Si el teléfono tiene 9 dígitos (sin el 0 inicial), agregarlo
+        if (telefonoLimpio.length === 9 && !telefonoLimpio.startsWith('0')) {
+          telefonoLimpio = '0' + telefonoLimpio;
+        }
+        
+        // Si tiene más de 10 dígitos, tomar los últimos 10
+        if (telefonoLimpio.length > 10) {
+          telefonoLimpio = telefonoLimpio.slice(-10);
+        }
+
+        // Autocompletar los campos
+        setFormData(prev => ({
+          ...prev,
+          beneficiaryName: nombre,
+          email: email,
+          phone: telefonoLimpio
+        }));
+
+        // Marcar qué campos fueron autocompletados
+        setAutoFilledFields({
+          beneficiaryName: !!nombre,
+          email: !!email,
+          phone: !!telefonoLimpio
+        });
+
+        setIsLocalClient(true);
+        console.log('✅ [NEW-CONTACT] Campos autocompletados:', { nombre, email, telefonoLimpio });
+
+        return true;
+      } else {
+        console.log('ℹ️ [NEW-CONTACT] No se encontró cliente local, campos manuales habilitados');
+        setIsLocalClient(false);
+        setAutoFilledFields({});
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ [NEW-CONTACT] Error buscando cliente local:', error);
+      setIsLocalClient(false);
+      setAutoFilledFields({});
+      return false;
+    } finally {
+      setIsLoadingClientInfo(false);
+    }
+  };
 
   // Obtener info del tipo de identificación seleccionado
   const getSelectedIdTypeInfo = () => {
@@ -1082,12 +1227,56 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
             {/* ========== SECCIÓN 3: DATOS PERSONALES (SOLO SI IDENTIFICACIÓN ES VÁLIDA) ========== */}
             {isIdentificationValid && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b border-slate-200/60 pb-2">Datos personales del beneficiario</h3>
+                <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b border-slate-200/60 pb-2">
+                  Datos personales del beneficiario
+                  {isLoadingClientInfo && (
+                    <span className="ml-2 text-sm font-normal text-sky-600">
+                      <svg className="animate-spin inline-block h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Buscando información...
+                    </span>
+                  )}
+                </h3>
+
+                {/* Mensaje informativo si es cliente local */}
+                {isLocalClient && Object.values(autoFilledFields).some(v => v) && (
+                  <div className="bg-sky-50/80 border border-sky-200/60 rounded-xl p-3 mb-4 backdrop-blur-sm">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z" />
+                      </svg>
+                      <div>
+                        <p className="text-sky-700 font-medium text-sm">Cliente de la cooperativa detectado</p>
+                        <p className="text-sky-600 text-xs">Los datos se han completado automáticamente desde nuestros registros. Puedes modificarlos si es necesario.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mensaje informativo si es transferencia externa */}
+                {!isLocalClient && !isLoadingClientInfo && (
+                  <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-3 mb-4 backdrop-blur-sm">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" />
+                      </svg>
+                      <div>
+                        <p className="text-amber-700 font-medium text-sm">Beneficiario externo</p>
+                        <p className="text-amber-600 text-xs">Por favor ingresa los datos del beneficiario manualmente.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Nombre del beneficiario */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Nombre completo del beneficiario *
+                    {autoFilledFields.beneficiaryName && isLocalClient && (
+                      <span className="ml-2 text-xs text-sky-600 font-normal">🔒 Dato del sistema</span>
+                    )}
                   </label>
                   <input
                     type="text"
@@ -1095,8 +1284,12 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
                     value={formData.beneficiaryName}
                     onChange={handleInputChange}
                     placeholder="Ingresa el nombre completo"
-                    className={`w-full px-4 py-3 bg-white/90 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50 transition-all duration-300 backdrop-blur-sm ${errors.beneficiaryName ? 'border-red-500' : 'border-slate-300'
-                      }`}
+                    readOnly={autoFilledFields.beneficiaryName && isLocalClient}
+                    className={`w-full px-4 py-3 border rounded-xl text-slate-800 placeholder-slate-400 transition-all duration-300 backdrop-blur-sm ${
+                      autoFilledFields.beneficiaryName && isLocalClient 
+                        ? 'bg-slate-100 border-slate-300 cursor-not-allowed' 
+                        : 'bg-white/90 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50'
+                    } ${errors.beneficiaryName ? 'border-red-500' : 'border-slate-300'}`}
                   />
                   {errors.beneficiaryName && (
                     <p className="text-red-500 text-sm mt-1">{errors.beneficiaryName}</p>
@@ -1107,6 +1300,9 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Correo electrónico (opcional)
+                    {autoFilledFields.email && isLocalClient && (
+                      <span className="ml-2 text-xs text-sky-600 font-normal">🔒 Dato del sistema</span>
+                    )}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1120,28 +1316,42 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="ejemplo@correo.com"
-                      className={`w-full pl-10 pr-4 py-3 bg-white/90 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50 transition-all duration-300 backdrop-blur-sm ${errors.email ? 'border-red-500' : 'border-slate-300'
-                        }`}
+                      readOnly={autoFilledFields.email && isLocalClient}
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-slate-800 placeholder-slate-400 transition-all duration-300 backdrop-blur-sm ${
+                        autoFilledFields.email && isLocalClient 
+                          ? 'bg-slate-100 border-slate-300 cursor-not-allowed' 
+                          : 'bg-white/90 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50'
+                      } ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
                     />
                   </div>
                   {errors.email && (
                     <p className="text-red-500 text-sm mt-1">{errors.email}</p>
                   )}
-                  <p className="text-slate-500 text-sm mt-1">Debe contener @ y .com</p>
+                  {!(autoFilledFields.email && isLocalClient) && (
+                    <p className="text-slate-500 text-sm mt-1">Debe contener @ y .com</p>
+                  )}
                 </div>
 
                 {/* Número de teléfono */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Número de teléfono celular (opcional)
+                    {autoFilledFields.phone && isLocalClient && (
+                      <span className="ml-2 text-xs text-sky-600 font-normal">🔒 Dato del sistema</span>
+                    )}
                   </label>
                   <div className="flex space-x-3">
                     {/* Selector de código de país */}
                     <div className="relative country-selector" ref={countrySelectorRef}>
                       <button
                         type="button"
-                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                        className="flex items-center space-x-2 px-3 py-3 bg-white/90 border border-slate-300 rounded-xl hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50 transition-all duration-300 backdrop-blur-sm min-w-[120px]"
+                        onClick={() => !(autoFilledFields.phone && isLocalClient) && setShowCountryDropdown(!showCountryDropdown)}
+                        disabled={autoFilledFields.phone && isLocalClient}
+                        className={`flex items-center space-x-2 px-3 py-3 border rounded-xl transition-all duration-300 backdrop-blur-sm min-w-[120px] ${
+                          autoFilledFields.phone && isLocalClient
+                            ? 'bg-slate-100 border-slate-300 cursor-not-allowed'
+                            : 'bg-white/90 border-slate-300 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50'
+                        }`}
                       >
                         <span className="text-lg">{getSelectedCountry()?.flag || '🌍'}</span>
                         <span className="text-slate-700 font-medium text-sm">{getSelectedCountry()?.country.split(' ')[0]}</span>
@@ -1187,16 +1397,22 @@ const NewContact = ({ onBack, onContactCreated, onProceedToTransfer }) => {
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="999 999 999"
-                      className={`flex-1 px-4 py-3 bg-white/90 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50 transition-all duration-300 backdrop-blur-sm ${errors.phone ? 'border-red-500' : 'border-slate-300'
-                        }`}
+                      readOnly={autoFilledFields.phone && isLocalClient}
+                      className={`flex-1 px-4 py-3 border rounded-xl text-slate-800 placeholder-slate-400 transition-all duration-300 backdrop-blur-sm ${
+                        autoFilledFields.phone && isLocalClient 
+                          ? 'bg-slate-100 border-slate-300 cursor-not-allowed' 
+                          : 'bg-white/90 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-400/50'
+                      } ${errors.phone ? 'border-red-500' : 'border-slate-300'}`}
                     />
                   </div>
                   {errors.phone && (
                     <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
                   )}
-                  <p className="text-slate-500 text-sm mt-1">
-                    Exactamente 10 dígitos ({formData.phone.length}/10)
-                  </p>
+                  {!(autoFilledFields.phone && isLocalClient) && (
+                    <p className="text-slate-500 text-sm mt-1">
+                      Exactamente 10 dígitos ({formData.phone.length}/10)
+                    </p>
+                  )}
                 </div>
               </div>
             )}

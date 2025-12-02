@@ -10,7 +10,7 @@ const API_CONFIG = {
   baseUrl: '/api/prctrans.php',         // API principal
   baseUrlWithL: '/api-l/prctrans.php',  // API con 'L' (ciertos procesos)
   
-  token: '0060CoacVilcabamba20220511',
+  token: '0999SolSTIC20220719',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -128,9 +128,6 @@ const ERROR_CODES_MAP = {
   'default': { success: false, code: 'UNKNOWN_ERROR', message: 'Error desconocido' }
 };
 
-/**
- * Clase principal para manejar las comunicaciones con la API
- */
 class ApiService {
   constructor() {
     this.config = API_CONFIG;
@@ -3245,6 +3242,86 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     }
 
     return result;
+  }
+
+  /**
+   * Obtener perfil completo del cliente (Proceso 2305)
+   */
+  async getClientProfile(cedula) {
+    console.log('👤 [PROFILE] Obteniendo perfil del cliente para cédula:', cedula);
+
+    if (!cedula || !cedula.trim()) {
+      return {
+        success: false,
+        error: {
+          message: 'La cédula es requerida',
+          code: 'CEDULA_REQUIRED'
+        }
+      };
+    }
+
+    const profileData = {
+      prccode: '2305',
+      idecl: cedula.trim() // Cédula encriptada
+    };
+
+    console.log('📤 [PROFILE] Solicitando información del perfil:', {
+      ...profileData,
+      idecl: '***' + (profileData.idecl.length > 4 ? profileData.idecl.slice(-4) : '')
+    });
+
+    const result = await this.makeRequest(profileData);
+
+    if (result.success) {
+      console.log('🔍 [PROFILE] Estado de la respuesta:', result.data.estado);
+
+      if (result.data.estado === '000' && result.data.cliente) {
+        console.log('✅ [PROFILE] Perfil obtenido exitosamente');
+
+        return {
+          success: true,
+          data: {
+            cliente: result.data.cliente,
+            estado: result.data.estado,
+            mensaje: result.data.msg
+          },
+          message: 'Perfil del cliente obtenido correctamente'
+        };
+      } else {
+        console.log('❌ [PROFILE] Error en la respuesta del servidor:', result.data.msg);
+        return {
+          success: false,
+          error: {
+            message: result.data.msg || 'No se pudo obtener el perfil del cliente',
+            code: 'PROFILE_ERROR',
+            serverState: result.data.estado
+          }
+        };
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Método de conveniencia para obtener perfil del usuario actual
+   */
+  async getCurrentUserProfile() {
+    console.log('👤 [PROFILE] Obteniendo perfil del usuario actual');
+
+    const cedula = this.getUserCedula();
+    if (!cedula) {
+      console.log('❌ [PROFILE] No se pudo obtener la cédula del usuario');
+      return {
+        success: false,
+        error: {
+          message: 'No hay sesión activa o no se pudo obtener la cédula del usuario',
+          code: 'NO_USER_SESSION'
+        }
+      };
+    }
+
+    return await this.getClientProfile(cedula);
   }
 
   async getFinancialSummary(cedula) {

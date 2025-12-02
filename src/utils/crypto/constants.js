@@ -395,6 +395,7 @@ export const ENCRYPTION_PROCESS_CODES = {
     '2220',  // Tabla de amortización
     '2300',  // Listar cuentas
     '2301',  // Detalle de cuenta
+    '2305',  // Obtener información del perfil del cliente
     '2351'   // Consultar cuenta específica (ejemplo proporcionado)
   ],
 

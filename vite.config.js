@@ -4,7 +4,7 @@ import path from 'path'
 
 // ⚠️ CONFIGURACIÓN ÚNICA: Solo wsVirtualCoopSrvP
 // Las rutas wsVirtualCoopSrvL y wsVirtualCoopSrv NO EXISTEN en los servidores de las cooperativas
-const API_TARGET = 'http://172.31.30.180'
+const API_TARGET = 'http://192.168.200.102'
 const API_PATH = '/wsVirtualCoopSrvP/ws_server'
 
 export default defineConfig({

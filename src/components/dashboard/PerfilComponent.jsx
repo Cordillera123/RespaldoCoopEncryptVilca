@@ -1,88 +1,138 @@
-// components/PerfilComponent.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import apiService from '../../services/apiService';
+import { decrypt } from '../../utils/crypto/encryptionService';
 
-const PerfilComponent = ({ userInfo }) => {
-  const [editMode, setEditMode] = useState(false);
+const PerfilComponent = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [clienteInfo, setClienteInfo] = useState(null);
   const [activeTab, setActiveTab] = useState('personal');
-  const [formData, setFormData] = useState({
-    // Datos personales
-    nombres: 'JUAN CARLOS',
-    apellidos: 'RODRIGUEZ MARTINEZ',
-    cedula: '1750456789',
-    fechaNacimiento: '1985-03-15',
-    genero: 'MASCULINO',
-    estadoCivil: 'CASADO',
-    nacionalidad: 'ECUATORIANA',
-    
-    // Datos de contacto
-    telefono: '0987654321',
-    celular: '0998765432',
-    email: 'juan.rodriguez@email.com',
-    
-    // Dirección
-    provincia: 'PICHINCHA',
-    canton: 'QUITO',
-    parroquia: 'LA MAGDALENA',
-    direccion: 'AV. 6 DE DICIEMBRE N24-253 Y LIZARDO GARCIA',
-    referencia: 'FRENTE AL PARQUE LA CAROLINA',
-    
-    // Datos laborales
-    ocupacion: 'INGENIERO SISTEMAS',
-    empresa: 'TECH SOLUTIONS CIA. LTDA.',
-    cargo: 'GERENTE DE DESARROLLO',
-    ingresosMensuales: 2850.00,
-    tiempoLaboral: '5 AÑOS',
-    
-    // Datos financieros
-    patrimonio: 125000.00,
-    otrosIngresos: 450.00,
-    gastosMensuales: 1800.00
-  });
 
-  const cliente = userInfo?.cliente?.[0] || {};
+  useEffect(() => {
+    loadClientProfile();
+  }, []);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  const loadClientProfile = async () => {
+    console.log('👤 [PERFIL] Cargando información del perfil...');
+    setLoading(true);
+    setError(null);
 
-  const handleSave = () => {
-    // Aquí iría la lógica para guardar los datos
-    alert('Información actualizada correctamente');
-    setEditMode(false);
-  };
-
-  const handleCancel = () => {
-    // Resetear datos si se cancela
-    setEditMode(false);
+    try {
+      const result = await apiService.getCurrentUserProfile();
+      
+      if (result.success && result.data.cliente) {
+        console.log('✅ [PERFIL] Información cargada exitosamente');
+        console.log('📊 [PERFIL] Datos del cliente:', result.data.cliente);
+        
+        // Desencriptar campos si vienen encriptados
+        const cliente = { ...result.data.cliente };
+        
+        // Desencriptar cédula si está encriptada
+        if (cliente.idecli && cliente.idecli.includes('==')) {
+          try {
+            cliente.idecli_decrypted = decrypt(cliente.idecli);
+            console.log('🔓 [PERFIL] Cédula desencriptada');
+          } catch (err) {
+            console.warn('⚠️ [PERFIL] Error desencriptando cédula:', err);
+          }
+        }
+        
+        // Desencriptar teléfono celular si está encriptado
+        if (cliente.tlfcel && cliente.tlfcel.includes('==')) {
+          try {
+            cliente.tlfcel_decrypted = decrypt(cliente.tlfcel);
+            console.log('🔓 [PERFIL] Teléfono desencriptado');
+          } catch (err) {
+            console.warn('⚠️ [PERFIL] Error desencriptando teléfono:', err);
+          }
+        }
+        
+        // Desencriptar email si está encriptado (puede venir con caracteres especiales de Base64)
+        if (cliente.direma && (cliente.direma.includes('==') || cliente.direma.includes('+') || cliente.direma.includes('/'))) {
+          try {
+            // Verificar si parece ser Base64 (sin @ y con caracteres típicos de Base64)
+            const looksLikeBase64 = !cliente.direma.includes('@') && /^[A-Za-z0-9+/=]+$/.test(cliente.direma);
+            if (looksLikeBase64) {
+              cliente.direma_decrypted = decrypt(cliente.direma);
+              console.log('🔓 [PERFIL] Email desencriptado:', cliente.direma_decrypted);
+            } else {
+              cliente.direma_decrypted = cliente.direma; // Ya está en texto plano
+            }
+          } catch (err) {
+            console.warn('⚠️ [PERFIL] Error desencriptando email:', err);
+            cliente.direma_decrypted = cliente.direma; // Usar el valor original si falla
+          }
+        } else {
+          cliente.direma_decrypted = cliente.direma; // No está encriptado
+        }
+        
+        setClienteInfo(cliente);
+      } else {
+        console.error('❌ [PERFIL] Error cargando perfil:', result.error);
+        setError(result.error?.message || 'Error al cargar el perfil');
+      }
+    } catch (error) {
+      console.error('💥 [PERFIL] Error inesperado:', error);
+      setError('Error inesperado al cargar el perfil');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const downloadProfilePDF = () => {
-    const link = document.createElement('a');
-    link.href = '#';
-    link.download = `perfil_cliente_${cliente.codcli || 'usuario'}.pdf`;
-    link.click();
-    alert('Descargando información de perfil en PDF...');
+    alert('Funcionalidad de descarga PDF próximamente...');
   };
 
   const tabs = [
     { id: 'personal', label: 'Datos Personales', icon: '👤' },
-    { id: 'contacto', label: 'Contacto', icon: '📞' },
-    { id: 'direccion', label: 'Dirección', icon: '🏠' },
-    { id: 'laboral', label: 'Información Laboral', icon: '💼' },
-    { id: 'financiero', label: 'Datos Financieros', icon: '💰' }
+    { id: 'contacto', label: 'Contacto', icon: '📞' }
   ];
 
+  // Estado de carga
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full bg-sky-50">
+        <div className="text-center p-8">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mb-4"></div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Cargando Perfil</h3>
+          <p className="text-gray-500">Obteniendo información del cliente...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Estado de error
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gradient-to-br from-red-50 to-pink-100">
+        <div className="text-center p-8 max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Error al Cargar Perfil</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadClientProfile}
+            className="px-6 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors duration-200"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista principal con información del cliente
   return (
-    <div className="p-6 h-full bg-gradient-to-br from-indigo-50 to-indigo-100 overflow-auto">
+    <div className="p-6 h-full bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-100 overflow-auto">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-indigo-200 mb-6">
+        <div className="bg-white rounded-2xl p-6 shadow-xl border border-sky-200 mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <span className="text-white text-2xl">👤</span>
               </div>
               <div>
@@ -91,48 +141,19 @@ const PerfilComponent = ({ userInfo }) => {
               </div>
             </div>
             
-            <div className="flex space-x-3">
-              {editMode ? (
-                <>
-                  <button 
-                    onClick={handleCancel}
-                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={handleSave}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    Guardar
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button 
-                    onClick={downloadProfilePDF}
-                    className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                    </svg>
-                    <span>Descargar PDF</span>
-                  </button>
-                </>
-              )}
-            </div>
+{/* Botón PDF removido por solicitud */}
           </div>
 
           {/* Cliente Info Card */}
-          <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-sky-50 rounded-xl p-4 border border-sky-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Código Cliente</p>
-                <p className="font-bold text-gray-800">{cliente.codcli || 'N/A'}</p>
+                <p className="text-sm text-gray-500">Institución</p>
+                <p className="font-bold text-gray-800">{clienteInfo?.nomemp || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Oficina</p>
-                <p className="font-bold text-gray-800">{cliente.nomofi || 'N/A'}</p>
+                <p className="font-bold text-gray-800">{clienteInfo?.nomofi || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Estado</p>
@@ -140,25 +161,21 @@ const PerfilComponent = ({ userInfo }) => {
                   ACTIVO
                 </span>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Fecha Registro</p>
-                <p className="font-bold text-gray-800">15/01/2020</p>
-              </div>
             </div>
           </div>
         </div>
 
         {/* Tabs Navigation */}
-        <div className="bg-white rounded-2xl shadow-lg border border-indigo-200 overflow-hidden mb-6">
-          <div className="flex overflow-x-auto bg-indigo-50 border-b border-indigo-200">
+        <div className="bg-white rounded-2xl shadow-xl border border-sky-200 overflow-hidden">
+          <div className="flex overflow-x-auto bg-sky-50 border-b border-sky-200">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 px-6 py-4 font-medium transition-colors whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-indigo-600 text-white border-b-2 border-indigo-600'
-                    : 'text-gray-600 hover:text-indigo-600 hover:bg-white'
+                    ? 'bg-sky-600 text-white border-b-2 border-sky-600'
+                    : 'text-gray-600 hover:text-sky-600 hover:bg-white'
                 }`}
               >
                 <span className="text-lg">{tab.icon}</span>
@@ -173,85 +190,33 @@ const PerfilComponent = ({ userInfo }) => {
             {activeTab === 'personal' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nombres</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.nombres}
-                      onChange={(e) => handleInputChange('nombres', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.nombres}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cédula / RUC</label>
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200">
+                    {clienteInfo?.idecli_decrypted || clienteInfo?.idecli || 'N/A'}
+                  </div>
                 </div>
-                
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200">
+                    {clienteInfo?.apecli && clienteInfo?.nomcli 
+                      ? `${clienteInfo.apecli} ${clienteInfo.nomcli}` 
+                      : 'N/A'}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Apellidos</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.apellidos}
-                      onChange={(e) => handleInputChange('apellidos', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.apellidos}</p>
-                  )}
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200">
+                    {clienteInfo?.apecli || 'N/A'}
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cédula</label>
-                  <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.cedula}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de Nacimiento</label>
-                  {editMode ? (
-                    <input
-                      type="date"
-                      value={formData.fechaNacimiento}
-                      onChange={(e) => handleInputChange('fechaNacimiento', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.fechaNacimiento}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Género</label>
-                  {editMode ? (
-                    <select
-                      value={formData.genero}
-                      onChange={(e) => handleInputChange('genero', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="MASCULINO">MASCULINO</option>
-                      <option value="FEMENINO">FEMENINO</option>
-                    </select>
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.genero}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Estado Civil</label>
-                  {editMode ? (
-                    <select
-                      value={formData.estadoCivil}
-                      onChange={(e) => handleInputChange('estadoCivil', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="SOLTERO">SOLTERO</option>
-                      <option value="CASADO">CASADO</option>
-                      <option value="DIVORCIADO">DIVORCIADO</option>
-                      <option value="VIUDO">VIUDO</option>
-                      <option value="UNION LIBRE">UNION LIBRE</option>
-                    </select>
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.estadoCivil}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nombres</label>
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200">
+                    {clienteInfo?.nomcli || 'N/A'}
+                  </div>
                 </div>
               </div>
             )}
@@ -260,287 +225,53 @@ const PerfilComponent = ({ userInfo }) => {
             {activeTab === 'contacto' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
-                  {editMode ? (
-                    <input
-                      type="tel"
-                      value={formData.telefono}
-                      onChange={(e) => handleInputChange('telefono', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.telefono}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono Celular</label>
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200 flex items-center">
+                    <svg className="w-5 h-5 text-sky-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    {clienteInfo?.tlfcel_decrypted || clienteInfo?.tlfcel || 'N/A'}
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Celular</label>
-                  {editMode ? (
-                    <input
-                      type="tel"
-                      value={formData.celular}
-                      onChange={(e) => handleInputChange('celular', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.celular}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico</label>
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200 flex items-center">
+                    <svg className="w-5 h-5 text-sky-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {clienteInfo?.direma_decrypted || clienteInfo?.direma || 'N/A'}
+                  </div>
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  {editMode ? (
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.email}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Dirección */}
-            {activeTab === 'direccion' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Provincia</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.provincia}
-                      onChange={(e) => handleInputChange('provincia', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.provincia}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cantón</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.canton}
-                      onChange={(e) => handleInputChange('canton', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.canton}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Parroquia</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.parroquia}
-                      onChange={(e) => handleInputChange('parroquia', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.parroquia}</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
-                  {editMode ? (
-                    <textarea
-                      value={formData.direccion}
-                      onChange={(e) => handleInputChange('direccion', e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.direccion}</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Referencia</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.referencia}
-                      onChange={(e) => handleInputChange('referencia', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.referencia}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Información Laboral */}
-            {activeTab === 'laboral' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ocupación</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.ocupacion}
-                      onChange={(e) => handleInputChange('ocupacion', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.ocupacion}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Empresa</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.empresa}
-                      onChange={(e) => handleInputChange('empresa', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.empresa}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cargo</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.cargo}
-                      onChange={(e) => handleInputChange('cargo', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.cargo}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tiempo Laboral</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formData.tiempoLaboral}
-                      onChange={(e) => handleInputChange('tiempoLaboral', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">{formData.tiempoLaboral}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Datos Financieros */}
-            {activeTab === 'financiero' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ingresos Mensuales</label>
-                  {editMode ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.ingresosMensuales}
-                      onChange={(e) => handleInputChange('ingresosMensuales', parseFloat(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">${formData.ingresosMensuales.toLocaleString()}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Otros Ingresos</label>
-                  {editMode ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.otrosIngresos}
-                      onChange={(e) => handleInputChange('otrosIngresos', parseFloat(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">${formData.otrosIngresos.toLocaleString()}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gastos Mensuales</label>
-                  {editMode ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.gastosMensuales}
-                      onChange={(e) => handleInputChange('gastosMensuales', parseFloat(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">${formData.gastosMensuales.toLocaleString()}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Patrimonio</label>
-                  {editMode ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.patrimonio}
-                      onChange={(e) => handleInputChange('patrimonio', parseFloat(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  ) : (
-                    <p className="text-gray-800 font-medium bg-gray-50 px-4 py-2 rounded-lg">${formData.patrimonio.toLocaleString()}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Oficina Asignada</label>
+                  <div className="text-gray-800 font-medium bg-sky-50 px-4 py-2 rounded-lg border border-sky-200">
+                    {clienteInfo?.nomofi || 'N/A'}
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Información de Seguridad */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-indigo-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Información de Seguridad</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Información Adicional */}
+        <div className="bg-white rounded-2xl p-6 shadow-xl border border-sky-200 mt-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Información Institucional</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-center">
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-indigo-600 text-2xl">🔐</span>
+              <div className="w-16 h-16 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-sky-600 text-2xl">🏢</span>
               </div>
-              <h3 className="font-semibold text-gray-800 mb-2">Último Acceso</h3>
-              <p className="text-gray-600 text-sm">Hoy, 09:30 AM</p>
-              <p className="text-gray-500 text-xs">IP: 190.123.45.67</p>
+              <h3 className="font-semibold text-gray-800 mb-2">Institución</h3>
+              <p className="text-gray-600 text-sm">{clienteInfo?.nomemp || 'N/A'}</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-green-600 text-2xl">✅</span>
               </div>
-              <h3 className="font-semibold text-gray-800 mb-2">Verificación</h3>
-              <p className="text-green-600 text-sm font-medium">Cuenta Verificada</p>
-              <p className="text-gray-500 text-xs">Datos validados</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-yellow-600 text-2xl">🔑</span>
-              </div>
-              <h3 className="font-semibold text-gray-800 mb-2">Contraseña</h3>
-              <p className="text-gray-600 text-sm">Actualizada hace 30 días</p>
-              <p className="text-yellow-600 text-xs">Se recomienda cambiarla</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-blue-600 text-2xl">💰</span>
-              </div>
-              <h3 className="font-semibold text-gray-800 mb-2">Monto Máximo</h3>
-              <p className="text-blue-600 text-sm font-medium">$1,500.00</p>
-              <p className="text-gray-500 text-xs">Límite diario de transferencias</p>
+              <h3 className="font-semibold text-gray-800 mb-2">Estado de Cuenta</h3>
+              <p className="text-green-600 text-sm font-medium">ACTIVO</p>
             </div>
           </div>
         </div>

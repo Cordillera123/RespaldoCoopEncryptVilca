@@ -54,9 +54,11 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
       if (result.success && result.questions && result.questions.length > 0) {
         // Almacenar todas las preguntas disponibles del usuario
         setSecurityQuestions(result.questions);
-        setCurrentQuestionIndex(0); // Comenzar con la primera pregunta
+        // Seleccionar una pregunta aleatoria
+        const randomIndex = Math.floor(Math.random() * result.questions.length);
+        setCurrentQuestionIndex(randomIndex);
         console.log('✅ [SECURITY-Q] Preguntas cargadas:', result.questions.length, 'preguntas encontradas');
-        console.log('📝 [SECURITY-Q] Primera pregunta:', result.questions[0].detprg);
+        console.log('📝 [SECURITY-Q] Pregunta seleccionada (índice aleatorio ' + randomIndex + '):', result.questions[randomIndex].detprg);
       } else {
         throw new Error(result.error?.message || 'No tienes preguntas de seguridad registradas. Contacta al administrador.');
       }

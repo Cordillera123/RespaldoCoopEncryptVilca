@@ -22,7 +22,7 @@ import { decrypt } from '../utils/crypto/encryptionService.js';
 
 const API_CONFIG = {
   baseUrl: '/api/prctrans.php', // Usar proxy /api (servidor P)
-  token: '0060CoacVilcabamba20220511',
+  token: '0999SolSTIC20220719',
   timeout: 15000, // 15 segundos (más tiempo para generación de PDF)
   headers: {
     'Content-Type': 'application/json',

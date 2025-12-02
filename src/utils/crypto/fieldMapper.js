@@ -583,6 +583,15 @@ export const FIELD_MAPPING_BY_PROCESS = {
   },
 
   // ========================================================================
+  // PERFIL DEL CLIENTE
+  // ========================================================================
+  '2305': {
+    description: 'Obtener información del perfil del cliente',
+    encryptFields: ['idecl', 'identificacion'],
+    decryptFields: ['idecli', 'tlfcel', 'direma'] // Campos que vienen encriptados con sufijo E
+  },
+
+  // ========================================================================
   // CERTIFICADOS BANCARIOS
   // ========================================================================
   '2400': {

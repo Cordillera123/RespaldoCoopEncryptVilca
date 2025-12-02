@@ -57,7 +57,7 @@ const SecurityQuestionModal = ({
       setError(null);
       setAttempts(0);
       setValidationMethod('question');
-      setCurrentQuestionIndex(0);
+      // El índice se establece de forma aleatoria en loadAllSecurityQuestions
       setOtpCode(['', '', '', '', '', '']);
       setIdemsg(null);
       setOtpAttempts(0);
@@ -93,7 +93,11 @@ const SecurityQuestionModal = ({
 
       if (result.success && result.data && result.data.length > 0) {
         setSecurityQuestions(result.data);
+        // Seleccionar una pregunta aleatoria
+        const randomIndex = Math.floor(Math.random() * result.data.length);
+        setCurrentQuestionIndex(randomIndex);
         console.log(`✅ [SECURITY-MODAL] Cargadas ${result.data.length} preguntas de seguridad`);
+        console.log(`📝 [SECURITY-MODAL] Pregunta seleccionada (índice aleatorio ${randomIndex}):`, result.data[randomIndex]);
       } else {
         // Si no hay múltiples preguntas, mantener la pregunta existente
         console.log('⚠️ [SECURITY-MODAL] No se obtuvieron múltiples preguntas, usando pregunta existente');

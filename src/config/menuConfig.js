@@ -64,15 +64,6 @@ export const PERSONA_NATURAL_MENU = [
         customIcon: '📜',
         description: 'Consulta tu historial de transferencias',
         color: 'copper'
-      },
-      { 
-        id: 'international', 
-        label: 'Internacional', 
-        component: 'InternationalTransferForm',
-        iconType: 'custom',
-        customIcon: '🌍',
-        description: 'Transferencias internacionales',
-        color: 'platinum'
       }
     ]
   },
@@ -91,15 +82,6 @@ export const PERSONA_NATURAL_MENU = [
         customIcon: '👤',
         description: 'Gestiona tu información personal',
         color: 'copper'
-      },
-      { 
-        id: 'update-password', 
-        label: 'Actualizar Clave de acceso', 
-        component: 'UpdatePasswordForm',
-        iconType: 'custom',
-        customIcon: '🔐',
-        description: 'Cambia tu contraseña de acceso',
-        color: 'bronze'
       }
     ]
   },
@@ -355,15 +337,6 @@ export const EMPRESA_MENU = [
         customIcon: '🏢',
         description: 'Datos de la empresa',
         color: 'copper'
-      },
-      { 
-        id: 'update-password', 
-        label: 'Actualizar Clave de acceso', 
-        component: 'UpdatePasswordForm',
-        iconType: 'custom',
-        customIcon: '🔐',
-        description: 'Cambiar contraseña empresarial',
-        color: 'bronze'
       }
     ]
   },

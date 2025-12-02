@@ -135,11 +135,12 @@ const BlockUser = ({ onBackToLogin }) => {
         // Guardar TODAS las preguntas
         setSecurityQuestions(result.questions);
         
-        // Seleccionar la primera pregunta por defecto
-        setCurrentQuestionIndex(0);
-        setSecurityQuestion(result.questions[0]);
+        // Seleccionar una pregunta aleatoria
+        const randomIndex = Math.floor(Math.random() * result.questions.length);
+        setCurrentQuestionIndex(randomIndex);
+        setSecurityQuestion(result.questions[randomIndex]);
         
-        console.log('✅ [BLOCK] Primera pregunta seleccionada:', result.questions[0]);
+        console.log('✅ [BLOCK] Pregunta seleccionada (índice aleatorio ' + randomIndex + '):', result.questions[randomIndex]);
       } else {
         console.log('❌ [BLOCK] Error obteniendo preguntas automáticamente:', result.error);
         setSecurityQuestions([]);

@@ -324,12 +324,13 @@ const ForgotPassword = ({ onBackToLogin }) => {
         // Guardar TODAS las preguntas del usuario
         setSecurityQuestions(result.questions);
         
-        // Mostrar la primera pregunta
-        setCurrentQuestionIndex(0);
-        setSecurityQuestion(result.questions[0]);
+        // Seleccionar una pregunta aleatoria
+        const randomIndex = Math.floor(Math.random() * result.questions.length);
+        setCurrentQuestionIndex(randomIndex);
+        setSecurityQuestion(result.questions[randomIndex]);
         setNoQuestionsRegistered(false);
         
-        console.log('✅ [FORGOT] Primera pregunta cargada:', result.questions[0]);
+        console.log('✅ [FORGOT] Pregunta seleccionada (índice aleatorio ' + randomIndex + '):', result.questions[randomIndex]);
       } else {
         console.log('❌ [FORGOT] No hay preguntas registradas o error:', result.error);
         

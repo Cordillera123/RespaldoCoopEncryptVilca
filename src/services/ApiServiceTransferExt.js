@@ -10,7 +10,7 @@ import { encryptRequest, decryptResponse, decrypt } from '../utils/crypto/index.
 
 const API_CONFIG = {
   baseUrl: '/api-l/prctrans.php', // SOLO servidor con L
-  token: '0060CoacVilcabamba20220511',
+  token: '0999SolSTIC20220719',
   // Aumentado a 60s para evitar abortos prematuros en transferencias externas
   timeout: 60000,
   headers: {
