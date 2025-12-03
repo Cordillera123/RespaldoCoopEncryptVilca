@@ -489,7 +489,7 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
               <p className="text-sm text-gray-600">
                 {validationMethod === 'question' 
                   ? 'Responde la pregunta de seguridad' 
-                  : 'Ingresa el código enviado a tu correo/teléfono'
+                  : 'Ingresa el código enviado a tu teléfono registrado'
                 }
               </p>
             </div>
@@ -666,7 +666,7 @@ const NewContactQuestions = ({ beneficiaryData, onSecurityValidated, onBack, onC
                               Código de verificación enviado
                             </p>
                             <p className="text-sm text-sky-700 mt-1">
-                              Ingresa el código de 6 dígitos que enviamos a tu correo electrónico/teléfono registrado.
+                              Ingresa el código de 6 dígitos que enviamos a tu teléfono registrado.
                             </p>
                           </div>
                         </div>

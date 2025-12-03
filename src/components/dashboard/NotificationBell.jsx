@@ -1,5 +1,6 @@
 // src/components/dashboard/NotificationBell.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNotificationContext } from '../../context/NotificationContext';
 
 /**
@@ -12,6 +13,7 @@ import { useNotificationContext } from '../../context/NotificationContext';
  * - Permite marcar notificaciones como leídas
  * - Botón para marcar todas como leídas
  * - Sincroniza con localStorage por usuario (cedula)
+ * - Usa Portal para renderizar sobre todas las ventanas
  */
 const NotificationBell = () => {
   const {
@@ -26,14 +28,34 @@ const NotificationBell = () => {
   } = useNotificationContext();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
+
+  /**
+   * Calcular posición del dropdown basándose en el botón
+   */
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8, // 8px de margen
+        right: window.innerWidth - rect.right
+      });
+    }
+  }, [isOpen]);
 
   /**
    * Cerrar dropdown al hacer clic fuera
    */
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -100,9 +122,10 @@ const NotificationBell = () => {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       {/* Botón de Campana */}
       <button
+        ref={buttonRef}
         onClick={handleToggle}
         className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         aria-label="Notificaciones"
@@ -132,9 +155,17 @@ const NotificationBell = () => {
         )}
       </button>
 
-      {/* Dropdown de Notificaciones */}
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-[500px] overflow-hidden flex flex-col">
+      {/* Dropdown de Notificaciones - Renderizado con Portal */}
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="fixed w-96 bg-white rounded-lg shadow-2xl border border-gray-200 max-h-[500px] overflow-hidden flex flex-col"
+          style={{ 
+            zIndex: 999999,
+            top: dropdownPosition.top,
+            right: dropdownPosition.right
+          }}
+        >
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
             <div className="flex items-center justify-between">
@@ -239,7 +270,8 @@ const NotificationBell = () => {
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
