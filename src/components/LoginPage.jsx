@@ -664,7 +664,7 @@ const LoginPage = ({
               <div className="flex items-center justify-center space-x-2">
                 <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full shadow-sm"></div>
                 <p className="text-xs text-white font-semibold drop-shadow-md">
-                  © 2024 Cooperativa de ahorro y credito Vilcabamba. Todos los derechos reservados.
+                  © 2025 Cooperativa de ahorro y credito Vilcabamba. Todos los derechos reservados.
                 </p>
                 <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-sm"></div>
               </div>

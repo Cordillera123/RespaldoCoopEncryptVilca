@@ -272,6 +272,12 @@ export const FIELD_MAPPING_BY_PROCESS = {
     decryptFields: ['codcta', 'salcnt', 'saldis'] // SIN sufijo E
   },
 
+  '2303': {
+    description: 'Configurar cupo máximo de transferencia por cuenta',
+    encryptFields: ['idecl', 'mxmret'],  // Encriptar cédula y monto máximo
+    decryptFields: []
+  },
+
   '2351': {
     description: 'Consultar cuenta (ejemplo proporcionado)',
     encryptFields: ['identificacion', 'idecl', 'cuenta', 'codctad'],

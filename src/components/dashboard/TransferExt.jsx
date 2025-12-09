@@ -3,8 +3,12 @@ import apiServiceTransferExt from '../../services/apiServiceTransferExt';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import SecurityquestionExt from './SecurityCodeExt.jsx';
+import { useWindowContext } from '../../context/WindowContext'; // 🔒 Bloqueo de cierre
 
 const TransferExt = ({ onBack, preselectedContact = null, onShowAddAccount }) => {
+  // 🔒 Contexto para bloquear cierre de ventana durante OTP
+  const { setCloseBlockedByComponent } = useWindowContext();
+  
   // Estados principales
   const [currentStep, setCurrentStep] = useState('form');
   const [accounts, setAccounts] = useState([]);
@@ -28,6 +32,24 @@ const TransferExt = ({ onBack, preselectedContact = null, onShowAddAccount }) =>
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  // 🔒 Efecto para bloquear/desbloquear cierre de ventana según el paso actual
+  useEffect(() => {
+    // Bloquear cierre cuando estamos en OTP (verificación de código)
+    if (currentStep === 'otp') {
+      console.log('🔒 [TRANSFER-EXT] Bloqueando cierre de ventana - OTP en progreso');
+      setCloseBlockedByComponent('ExternalTransferForm', true);
+    } else {
+      // Desbloquear cuando estamos en form o success
+      console.log('🔓 [TRANSFER-EXT] Desbloqueando cierre de ventana');
+      setCloseBlockedByComponent('ExternalTransferForm', false);
+    }
+    
+    // Cleanup: desbloquear al desmontar componente
+    return () => {
+      setCloseBlockedByComponent('ExternalTransferForm', false);
+    };
+  }, [currentStep, setCloseBlockedByComponent]);
 
   // ✅ EFECTO SEPARADO para manejar preselección
   useEffect(() => {

@@ -3,8 +3,12 @@ import apiService from '../../services/apiService';
 import CodeSecurityInternalTransfer from './CodeSecurityInternalTransfer.jsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { useWindowContext } from '../../context/WindowContext'; // 🔒 Bloqueo de cierre
 
 const SameAccounts = ({ onBack, openWindow }) => {
+  // 🔒 Contexto para bloquear cierre de ventana durante OTP
+  const { setCloseBlockedByComponent } = useWindowContext();
+  
   // Estados principales
   const [currentStep, setCurrentStep] = useState('form'); // 'form', 'otp', 'success'
   const [transferType, setTransferType] = useState('same-bank'); // 'same-bank' o 'other-banks'
@@ -32,6 +36,24 @@ const SameAccounts = ({ onBack, openWindow }) => {
       loadUserAccounts();
     }
   }, [transferType]);
+
+  // 🔒 Efecto para bloquear/desbloquear cierre de ventana según el paso actual
+  useEffect(() => {
+    // Bloquear cierre cuando estamos en OTP (verificación de código)
+    if (currentStep === 'otp') {
+      console.log('🔒 [SAME-ACCOUNTS] Bloqueando cierre de ventana - OTP en progreso');
+      setCloseBlockedByComponent('InternalTransferForm', true);
+    } else {
+      // Desbloquear cuando estamos en form o success
+      console.log('🔓 [SAME-ACCOUNTS] Desbloqueando cierre de ventana');
+      setCloseBlockedByComponent('InternalTransferForm', false);
+    }
+    
+    // Cleanup: desbloquear al desmontar componente
+    return () => {
+      setCloseBlockedByComponent('InternalTransferForm', false);
+    };
+  }, [currentStep, setCloseBlockedByComponent]);
 
   const handleTransferTypeChange = (type) => {
     setTransferType(type);

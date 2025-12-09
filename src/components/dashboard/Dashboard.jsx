@@ -6,6 +6,7 @@ import useWindows from "../../hooks/useWindows";
 import apiService from "../../services/apiService";
 import { NotificationProvider } from "../../context/NotificationContext"; // 🔔 NUEVO CONTEXTO
 import NotificationBell from "./NotificationBell"; // 🔔 Campana de notificaciones
+import { useWindowContext } from "../../context/WindowContext"; // 🔒 Contexto de bloqueo de ventanas
 
 
 
@@ -695,6 +696,9 @@ const Dashboard = ({ userSession, onLogout }) => {
     restoreAndMaximizeWindow
   } = useWindows();
 
+  // 🔒 Usar contexto global para bloqueo de ventanas
+  const { isComponentBlocked } = useWindowContext();
+
   useEffect(() => {
     console.log("📊 [DASHBOARD] Cargando dashboard...");
     console.log("👤 [DASHBOARD] Sesión del usuario:", userSession);
@@ -880,41 +884,8 @@ const Dashboard = ({ userSession, onLogout }) => {
           
               </div>
 
-              {/* Window Controls */}
+              {/* Window Controls - Removido: Auto y Cascada ya no son necesarios con una sola ventana */}
               <div className="flex items-center space-x-4">
-                {windowCount > 0 && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => arrangeWindows("auto")}
-                      className="px-3 py-1 bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1"
-                      title="Auto-organizar"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M3,11H11V3H3M3,21H11V13H3M13,21H21V13H13M13,3V11H21V3" />
-                      </svg>
-                      <span>Auto</span>
-                    </button>
-                    <button
-                      onClick={() => arrangeWindows("cascade")}
-                      className="px-3 py-1 bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1"
-                      title="Organizar en cascada"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M2,5V19H20V17H4V5M24,3H6V15H24V3M22,5H8V13H22V5Z" />
-                      </svg>
-                      <span>Cascada</span>
-                    </button>
-                  </div>
-                )}
-
                 {/* User Profile Menu */}
                 <div className="flex items-center space-x-3">
                   {/* 🔔 Campana de notificaciones */}
@@ -987,6 +958,7 @@ const Dashboard = ({ userSession, onLogout }) => {
                   onFocus={focusWindow}
                   onPositionChange={updateWindowPosition}
                   onSizeChange={updateWindowSize}
+                  isCloseBlocked={isComponentBlocked(window.componentName)}
                 >
                   {React.createElement(window.component)}
                 </WindowPanel>

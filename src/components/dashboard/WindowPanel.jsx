@@ -9,7 +9,8 @@ const WindowPanel = ({
   onFocus,
   onPositionChange,
   onSizeChange,
-  children
+  children,
+  isCloseBlocked = false // Nuevo prop para bloquear cierre durante transferencias
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -144,47 +145,27 @@ const WindowPanel = ({
           <span className="font-semibold text-gray-800 text-sm">{window.title}</span>
         </div>
 
-        {/* Controles de ventana */}
+        {/* Controles de ventana - Solo botón cerrar */}
         <div className="window-controls flex items-center space-x-1">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onMinimize(window.id);
-            }}
-            className="w-8 h-8 rounded-md hover:bg-gray-200 flex items-center justify-center transition-colors duration-150"
-            title="Minimizar"
-          >
-            <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20,14H4V10H20"/>
-            </svg>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMaximize(window.id);
-            }}
-            className="w-8 h-8 rounded-md hover:bg-gray-200 flex items-center justify-center transition-colors duration-150"
-            title={window.isMaximized ? "Restaurar" : "Maximizar"}
-          >
-            {window.isMaximized ? (
-              <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4,8H8V4H20V16H16V20H4V8M16,8V14H18V6H10V8H16M6,12V18H14V12H6Z"/>
-              </svg>
-            ) : (
-              <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4,4H20V20H4V4M6,8V18H18V8H6Z"/>
-              </svg>
-            )}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
+              if (isCloseBlocked) {
+                // Mostrar alerta si está bloqueado
+                alert('No puede cerrar esta ventana mientras hay una operación en curso.');
+                return;
+              }
               onClose(window.id);
             }}
-            className="w-8 h-8 rounded-md hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors duration-150"
-            title="Cerrar"
+            className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors duration-150 ${
+              isCloseBlocked 
+                ? 'bg-gray-200 cursor-not-allowed opacity-50' 
+                : 'hover:bg-red-500 hover:text-white'
+            }`}
+            title={isCloseBlocked ? "No puede cerrar durante una operación" : "Cerrar"}
+            disabled={isCloseBlocked}
           >
-            <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
+            <svg className={`w-4 h-4 ${isCloseBlocked ? 'text-gray-400' : 'text-gray-500'}`} viewBox="0 0 24 24" fill="currentColor">
               <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
             </svg>
           </button>
@@ -195,47 +176,6 @@ const WindowPanel = ({
       <div className="flex-1 overflow-auto bg-white" style={{ height: 'calc(100% - 52px)' }}>
         {children}
       </div>
-
-      {/* Handles de redimensionamiento */}
-      {!window.isMaximized && (
-        <>
-          {/* Esquinas */}
-          <div
-            className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'top-left')}
-          />
-          <div
-            className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'top-right')}
-          />
-          <div
-            className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'bottom-left')}
-          />
-          <div
-            className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize resize-handle bg-gray-300 opacity-50 hover:opacity-100"
-            onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
-          />
-
-          {/* Bordes */}
-          <div
-            className="absolute top-0 left-2 right-2 h-1 cursor-n-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'top')}
-          />
-          <div
-            className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'bottom')}
-          />
-          <div
-            className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'left')}
-          />
-          <div
-            className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize resize-handle"
-            onMouseDown={(e) => handleResizeStart(e, 'right')}
-          />
-        </>
-      )}
     </div>
   );
 };

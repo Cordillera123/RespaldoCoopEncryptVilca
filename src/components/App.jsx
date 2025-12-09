@@ -25,6 +25,9 @@ import TwoFactorAuthPage from './TwoFactorAuthPage.jsx';
 // 🚨 NUEVA IMPORTACIÓN: SISTEMA DE INACTIVIDAD
 import { InactivityProvider } from '../context/InactivityContext.jsx';
 
+// 🔒 NUEVA IMPORTACIÓN: CONTEXTO DE VENTANAS (bloqueo de cierre)
+import { WindowProvider } from '../context/WindowContext.jsx';
+
 // 🧪 IMPORTACIÓN: PÁGINA DE PRUEBAS DE ENCRIPTACIÓN (solo desarrollo)
 import CryptoTestPage from './CryptoTestPage.jsx';
 
@@ -530,6 +533,7 @@ if (loading) {
   console.log('🎬 [APP-RENDER] Estado:', { loading, currentView, hasSession: !!userSession });
 
   return (
+    <WindowProvider>
     <InactivityProvider 
       onLogout={handleInactivityLogout} 
       userSession={userSession}
@@ -680,6 +684,7 @@ if (loading) {
        
       </div>
     </InactivityProvider>
+    </WindowProvider>
   );
 };
 

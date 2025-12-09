@@ -4,110 +4,86 @@ import { useState, useCallback } from 'react';
 const useWindows = () => {
   const [windows, setWindows] = useState([]);
   const [zIndexCounter, setZIndexCounter] = useState(1000);
+  const [windowCloseBlocked, setWindowCloseBlocked] = useState({}); // Estado para bloquear cierre por ventana
 
-  // Crear nueva ventana o enfocar existente
+  // Función para establecer bloqueo de cierre por componente
+  const setCloseBlockedByComponent = useCallback((componentName, blocked) => {
+    console.log(`🔒 [useWindows] ${blocked ? 'Bloqueando' : 'Desbloqueando'} cierre para:`, componentName);
+    setWindowCloseBlocked(prev => ({
+      ...prev,
+      [componentName]: blocked
+    }));
+  }, []);
+
+  // Verificar si una ventana está bloqueada para cierre
+  const isWindowCloseBlocked = useCallback((windowId) => {
+    const targetWindow = windows.find(w => w.id === windowId);
+    if (!targetWindow) return false;
+    return windowCloseBlocked[targetWindow.componentName] || false;
+  }, [windows, windowCloseBlocked]);
+
+  // Crear nueva ventana o enfocar existente - SOLO UNA VENTANA A LA VEZ
   const openWindow = useCallback((windowConfig) => {
-    // 🔍 Verificar si ya existe una ventana con el mismo componente (sin minimizadas)
+    // 🔍 Verificar si ya existe una ventana con el mismo componente
     const existingWindow = windows.find(w => 
-      (w.componentName === windowConfig.component || w.title === windowConfig.title) && 
-      !w.isMinimized
+      (w.componentName === windowConfig.component || w.title === windowConfig.title)
     );
 
     if (existingWindow) {
       console.log('🔄 [useWindows] Ventana ya existe, enfocando:', existingWindow.title);
-      
-      // Si existe pero no está minimizada, solo enfocarla
       focusWindow(existingWindow.id);
       return existingWindow.id;
     }
 
-    // 🔍 Verificar si existe una ventana minimizada del mismo tipo
-    const minimizedWindow = windows.find(w => 
-      (w.componentName === windowConfig.component || w.title === windowConfig.title) && 
-      w.isMinimized
-    );
-
-    if (minimizedWindow) {
-      console.log('🔄 [useWindows] Restaurando ventana minimizada:', minimizedWindow.title);
-      
-      // Restaurar la ventana minimizada y traerla al frente
-      setWindows(prev => prev.map(w => 
-        w.id === minimizedWindow.id 
-          ? { 
-              ...w, 
-              isMinimized: false, 
-              zIndex: zIndexCounter + 1,
-              // Si solo hay una ventana, maximizarla
-              isMaximized: prev.filter(win => !win.isMinimized).length === 0
-            }
-          : w
-      ));
-      setZIndexCounter(prev => prev + 2);
-      return minimizedWindow.id;
-    }
-
-    // 🆕 Crear nueva ventana si no existe
+    // 🆕 Crear nueva ventana - cerrar cualquier ventana existente primero
     const newWindow = {
       id: `window-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: windowConfig.title || 'Nueva Ventana',
       component: windowConfig.component || null,
-      componentName: windowConfig.component, // 📝 Guardar nombre del componente para comparaciones
+      componentName: windowConfig.component,
       props: windowConfig.props || {},
       isMinimized: false,
-      isMaximized: true, // 🎯 Abrir siempre maximizada por defecto
-      zIndex: 9999, // Z-index alto para ventanas maximizadas
-      position: { x: 0, y: 0 }, // Posición temporal
-      size: { width: 800, height: 600 }, // Tamaño temporal
+      isMaximized: true, // Siempre maximizada
+      zIndex: 9999,
+      position: { x: 0, y: 0 },
+      size: { width: 800, height: 600 },
       minSize: windowConfig.minSize || { width: 400, height: 300 },
       ...windowConfig
     };
 
-    console.log('✨ [useWindows] Creando nueva ventana:', newWindow.title);
+    console.log('✨ [useWindows] Creando nueva ventana (solo una a la vez):', newWindow.title);
 
     setWindows(prev => {
-      // Filtrar ventanas no minimizadas para el conteo real
-      const visibleWindows = prev.filter(w => !w.isMinimized);
-      let newWindows;
-      
-      // Máximo 4 ventanas visibles
-      if (visibleWindows.length >= 4) {
-        console.log('⚠️ [useWindows] Máximo de ventanas alcanzado, cerrando la más antigua visible');
-        // Mantener ventanas minimizadas, remover la más antigua visible
-        const oldestVisible = visibleWindows[0];
-        newWindows = [...prev.filter(w => w.id !== oldestVisible.id), newWindow];
-      } else {
-        newWindows = [...prev, newWindow];
+      // Si hay una ventana existente, verificar si está bloqueada
+      if (prev.length > 0) {
+        const currentWindow = prev[0];
+        if (windowCloseBlocked[currentWindow.componentName]) {
+          console.log('⚠️ [useWindows] No se puede abrir nueva ventana, la actual está bloqueada');
+          return prev; // No permitir abrir nueva ventana
+        }
+        // Cerrar ventana existente y abrir nueva
+        console.log('🔄 [useWindows] Cerrando ventana existente para abrir nueva');
       }
-      
-      // Auto-organizar inmediatamente si hay múltiples ventanas visibles
-      const visibleAfterAdd = newWindows.filter(w => !w.isMinimized);
-      if (visibleAfterAdd.length > 1) {
-        return autoOrganizeWindows(newWindows);
-      }
-      
-      return newWindows;
+      return [newWindow]; // Solo una ventana
     });
 
     setZIndexCounter(prev => prev + 1);
     return newWindow.id;
-  }, [windows, zIndexCounter]);
+  }, [windows, zIndexCounter, windowCloseBlocked]);
 
   // Cerrar ventana
   const closeWindow = useCallback((windowId) => {
+    // Verificar si la ventana está bloqueada
+    if (isWindowCloseBlocked(windowId)) {
+      console.log('⚠️ [useWindows] No se puede cerrar, ventana bloqueada:', windowId);
+      return false;
+    }
+    
     console.log('❌ [useWindows] Cerrando ventana:', windowId);
     
-    setWindows(prev => {
-      const newWindows = prev.filter(w => w.id !== windowId);
-      
-      // Auto-reorganizar inmediatamente si hay múltiples ventanas visibles
-      const visibleWindows = newWindows.filter(w => !w.isMinimized);
-      if (visibleWindows.length > 1) {
-        return autoOrganizeWindows(newWindows);
-      }
-      
-      return newWindows;
-    });
-  }, []);
+    setWindows(prev => prev.filter(w => w.id !== windowId));
+    return true;
+  }, [isWindowCloseBlocked]);
 
   // Minimizar ventana
   const minimizeWindow = useCallback((windowId) => {
@@ -494,7 +470,11 @@ const focusWindow = useCallback((windowId) => {
     focusWindowByComponent,
     maximizeWindowByComponent,
     openOrFocusWindow,
-    restoreAndMaximizeWindow
+    restoreAndMaximizeWindow,
+    // 🔒 Funciones para bloqueo de cierre durante transferencias
+    setCloseBlockedByComponent,
+    isWindowCloseBlocked,
+    windowCloseBlocked
   };
 };
 

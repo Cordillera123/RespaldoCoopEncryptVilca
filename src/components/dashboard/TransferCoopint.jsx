@@ -5,8 +5,12 @@ import autoTable from 'jspdf-autotable';
 import SecurityquestionCoopint from './SecurityCodeCoopint.jsx';
 import useBeneficiaryAccounts from '../../hooks/useBeneficiaryAccounts.js';
 import MultipleBeneficiaryAccounts from './MultipleBeneficiaryAccounts.jsx';
+import { useWindowContext } from '../../context/WindowContext'; // 🔒 Bloqueo de cierre
 
 const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }) => {
+  // 🔒 Contexto para bloquear cierre de ventana durante OTP
+  const { setCloseBlockedByComponent } = useWindowContext();
+  
   // Estados principales
   const [currentStep, setCurrentStep] = useState('form'); // 'form', 'otp', 'success'
   const [accounts, setAccounts] = useState([]);
@@ -42,6 +46,24 @@ const TransferCoopint = ({ onBack, preselectedContact = null, onShowAddAccount }
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  // 🔒 Efecto para bloquear/desbloquear cierre de ventana según el paso actual
+  useEffect(() => {
+    // Bloquear cierre cuando estamos en OTP (verificación de código)
+    if (currentStep === 'otp') {
+      console.log('🔒 [TRANSFER-COOP] Bloqueando cierre de ventana - OTP en progreso');
+      setCloseBlockedByComponent('InternalTransferForm', true);
+    } else {
+      // Desbloquear cuando estamos en form o success
+      console.log('🔓 [TRANSFER-COOP] Desbloqueando cierre de ventana');
+      setCloseBlockedByComponent('InternalTransferForm', false);
+    }
+    
+    // Cleanup: desbloquear al desmontar componente
+    return () => {
+      setCloseBlockedByComponent('InternalTransferForm', false);
+    };
+  }, [currentStep, setCloseBlockedByComponent]);
 
   // Efecto para manejar preselección cuando los beneficiarios estén disponibles
   useEffect(() => {

@@ -669,7 +669,7 @@ const CupoComponent = () => {
                   <div className="flex-shrink-0 w-6 h-6 bg-sky-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
                     1
                   </div>
-                  <p className="text-gray-700">Se enviará un código de verificación de 6 dígitos a tu correo electrónico y número de celular registrados.</p>
+                  <p className="text-gray-700">Se enviará un código de verificación de 6 dígitos a tu número de celular registrados.</p>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-sky-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
@@ -712,7 +712,7 @@ const CupoComponent = () => {
                 <MdCheckCircle className="text-sky-600 text-5xl mx-auto mb-3" />
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Código Enviado</h2>
                 <p className="text-gray-600">
-                  Hemos enviado un código de 6 dígitos a tu correo y celular registrados.
+                  Hemos enviado un código de 6 dígitos a tu número de celular registrado.
                 </p>
               </div>
 

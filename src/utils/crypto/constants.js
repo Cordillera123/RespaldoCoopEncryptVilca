@@ -445,7 +445,8 @@ export const ENCRYPTION_PROCESS_CODES = {
   // SERVICIOS
   SERVICES: [
     '2500',  // Servicios Facilito
-    '2600'   // Certificados
+    '2600',  // Certificados
+    '2303'   // Configurar cupo máximo de transferencia por cuenta
   ],
 
   // OTROS

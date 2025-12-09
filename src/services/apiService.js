@@ -1374,7 +1374,7 @@ async validateSecurityAnswer(cedula, codigoPregunta, respuesta) {
     // PRUEBA 1: Petición directa sin proxy (para comparar)
     console.log('🧪 [DEBUG] === PRUEBA 1: Petición directa (sin proxy) ===');
     try {
-      const directUrl = 'http://172.31.30.180/wsVirtualCoopSrvP/ws_server/prctrans.php';
+      const directUrl = 'http://192.168.200.102/wsVirtualCoopSrvP/ws_server/prctrans.php';
       console.log('🌐 [DEBUG] URL directa:', directUrl);
 
       const directResponse = await fetch(directUrl, {
