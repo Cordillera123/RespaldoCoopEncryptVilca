@@ -430,7 +430,8 @@ export const ENCRYPTION_PROCESS_CODES = {
     '2372',  // Tipos de interés
     '2373',  // Calcular inversión (simulador)
     '2374',  // Listar cuentas para inversión
-    '2375'   // Registrar inversión
+    '2375',  // Registrar inversión
+    '2376'   // Parametrización del botón de inversión
   ],
 
   // PRODUCTOS

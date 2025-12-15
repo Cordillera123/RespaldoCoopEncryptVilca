@@ -47,6 +47,15 @@ export const FIELD_MAPPING_BY_PROCESS = {
     decryptFields: ['idecli', 'tlfdom', 'tlftra', 'tlfcel', 'direma'] // SIN sufijo E - vienen con nombres normales pero encriptados
   },
 
+  // ========================================================================
+  // PARAMETRIZACIÓN DE INVERSIONES
+  // ========================================================================
+  '2376': {
+    description: 'Obtener parametrización del botón de inversión',
+    encryptFields: ['idecl'], // Solo encriptar la cédula del cliente
+    decryptFields: [] // La respuesta (ctrrgpfd) no viene encriptada
+  },
+
   '2180': {
     description: 'Resumen Financiero (Financial Summary)',
     encryptFields: ['identificacion', 'idecl', 'clave'],

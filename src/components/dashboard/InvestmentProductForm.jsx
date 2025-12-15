@@ -57,6 +57,10 @@ const InvestmentProductForm = () => {
     insufficientFundsAmount,
     setShowInsufficientFundsModal,
     
+    // 🔒 Estados de parametrización del botón (NUEVO)
+    investmentButtonParam,
+    buttonParamLoading,
+    
     // Estados de paginación
     currentPage,
     totalPages,
@@ -160,7 +164,10 @@ const InvestmentProductForm = () => {
     // ✅ NUEVOS props para modal de fondos insuficientes
     showInsufficientFundsModal,
     insufficientFundsAmount,
-    setShowInsufficientFundsModal
+    setShowInsufficientFundsModal,
+    // 🔒 NUEVOS props para parametrización del botón
+    investmentButtonParam,
+    buttonParamLoading
   }), [
     calculatorData,
     setCalculatorData,
@@ -181,7 +188,9 @@ const InvestmentProductForm = () => {
     handleProceedToInvest,
     showInsufficientFundsModal,
     insufficientFundsAmount,
-    setShowInsufficientFundsModal
+    setShowInsufficientFundsModal,
+    investmentButtonParam,
+    buttonParamLoading
   ]);
 
   // Props para el proceso de inversión

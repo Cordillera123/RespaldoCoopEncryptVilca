@@ -88,6 +88,7 @@ INVESTMENT_TERMS: '2371',
 INTEREST_PAYMENT_TYPES: '2372',
 INVESTMENT_CALCULATION: '2373',
  REGISTER_INVESTMENT: '2375',  // ✅ AGREGAR ESTA LÍNEA
+  INVESTMENT_BUTTON_PARAM: '2376', // Obtener parametrización del botón de inversión
 
   // NUEVOS CÓDIGOS PARA REGISTRO DE PREGUNTAS DE SEGURIDAD
   VALIDATE_IDENTITY_REGISTRATION: '2140',  // Validar identidad para registro
@@ -4195,11 +4196,26 @@ async calculateInvestmentSimulation(cedula, tipoDeInt, valorInversion, plazoInve
   return await this.makeRequest(calculationData);
 }
 
+// 4. Obtener parametrización del botón de inversión (2376)
+async getInvestmentButtonParam(cedula) {
+  const paramData = {
+    prccode: '2376',
+    idecl: cedula.trim()
+  };
+  return await this.makeRequest(paramData);
+}
+
 // Métodos de conveniencia
 async getCurrentUserInvestmentParameters() {
   const cedula = this.getUserCedula();
   if (!cedula) return { success: false, error: { code: 'NO_USER_SESSION' } };
   return await this.getInvestmentParameters(cedula);
+}
+
+async getCurrentUserInvestmentButtonParam() {
+  const cedula = this.getUserCedula();
+  if (!cedula) return { success: false, error: { code: 'NO_USER_SESSION' } };
+  return await this.getInvestmentButtonParam(cedula);
 }
 
   /**

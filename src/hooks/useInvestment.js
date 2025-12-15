@@ -74,6 +74,10 @@ const [showInvestor, setShowInvestor] = useState(false);
   const [showInsufficientFundsModal, setShowInsufficientFundsModal] = useState(false);
   const [insufficientFundsAmount, setInsufficientFundsAmount] = useState(0);
 
+  // 🔒 Estado para parametrización del botón de inversión (API 2376)
+  const [investmentButtonParam, setInvestmentButtonParam] = useState(null);
+  const [buttonParamLoading, setButtonParamLoading] = useState(false);
+
 // AGREGAR ESTOS NUEVOS ESTADOS DESPUÉS DE LA LÍNEA ANTERIOR:
 // Estados para proceso de inversión (FASE 1)
 const [investmentProcess, setInvestmentProcess] = useState({
@@ -104,6 +108,13 @@ const [investmentResult, setInvestmentResult] = useState(null);
       loadInvestmentParameters();
     }
   }, [showCalculator]);
+
+  // 🔒 Cargar parametrización del botón cuando se abre el simulador
+  useEffect(() => {
+    if (showSimulator && !investmentButtonParam) {
+      loadInvestmentButtonParam();
+    }
+  }, [showSimulator]);
 
   // Validar parámetros cuando cambian los valores o se cargan parámetros
   useEffect(() => {
@@ -202,6 +213,38 @@ const [investmentResult, setInvestmentResult] = useState(null);
       setInvestmentParams(null);
     } finally {
       setParamsLoading(false);
+    }
+  };
+
+  /**
+   * 🔒 Cargar parametrización del botón de inversión (API 2376)
+   */
+  const loadInvestmentButtonParam = async () => {
+    try {
+      setButtonParamLoading(true);
+      console.log('🔒 [BUTTON-PARAM] Cargando parametrización del botón (API 2376)...');
+      
+      const result = await apiService.getCurrentUserInvestmentButtonParam();
+      
+      if (result.success && result.data) {
+        const ctrrgpfd = result.data.ctrrgpfd || '0';
+        console.log('✅ [BUTTON-PARAM] Parametrización recibida:', { ctrrgpfd });
+        
+        setInvestmentButtonParam({
+          enabled: ctrrgpfd === '1',
+          rawValue: ctrrgpfd
+        });
+      } else {
+        console.error('❌ [BUTTON-PARAM] Error obteniendo parametrización:', result.error);
+        // Por defecto ocultar el botón si hay error
+        setInvestmentButtonParam({ enabled: false, rawValue: '0' });
+      }
+    } catch (error) {
+      console.error('💥 [BUTTON-PARAM] Error inesperado:', error);
+      // Por defecto ocultar el botón si hay error
+      setInvestmentButtonParam({ enabled: false, rawValue: '0' });
+    } finally {
+      setButtonParamLoading(false);
     }
   };
 
@@ -1225,6 +1268,10 @@ const handleStartSimulator = async () => {
     showInsufficientFundsModal,
     insufficientFundsAmount,
     setShowInsufficientFundsModal,
+    
+    // 🔒 Estados de parametrización del botón (NUEVO)
+    investmentButtonParam,
+    buttonParamLoading,
     
     // Estados de navegación (NUEVO)
     showSimulator,
